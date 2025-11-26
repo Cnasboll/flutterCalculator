@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'package:awesome_calculator/widgets/post_it_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'steampunk_keyboard.dart';
 import 'cash_register_display.dart';
+import 'terminal_display.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 
 /// A retro-styled computer terminal with a steampunk mechanical keyboard.
@@ -35,10 +38,14 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   int _historyIndex = -1;
   String _currentInput = '';
   
+  // Terminal I/O state
+  bool _waitingForInput = false;
+  String? _readlinePrompt;
+  void Function(String)? _readlineCallback;
+  
   static const int maxWheels = 12;
   // Cash register display
-  String _displayValue = 'NULL'.padLeft(maxWheels, ' ');  
-  String _lastDisplayDebug = '';
+  String _displayValue = 'NULL'.padLeft(maxWheels, ' '); 
   
   // UI state
   String? _pressedKey;
@@ -54,6 +61,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
 
   // Define keyboard layout - calculator-optimized (all calc symbols unshifted, QWERTY preserved)
   final List<List<String>> _keyboardLayout = [
+    ['SIN', 'COS', 'TAN', 'ASIN', 'ACOS', 'ATAN', 'SQRT', 'EXP', 'LOG'],
     ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '(', ')'],
     ['+', '-', '*', '/', '^', '%', '=', '<', '>', '!', '&', '|', '~'],
     ['TAB', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
@@ -74,6 +82,11 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     'v': 'V', 'w': 'W', 'x': 'X', 'y': 'Y', 'z': 'Z',
     'ENTER': '↵',  // Soft return / line break
     // Arrow keys don't shift
+  };
+
+  // Function names that insert with parentheses
+  final Set<String> _functionNames = {
+    'SIN', 'COS', 'TAN', 'ASIN', 'ACOS', 'ATAN', 'SQRT', 'EXP', 'LOG'
   };
 
   @override
@@ -105,15 +118,54 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     super.dispose();
   }
 
+  /// Print text to terminal (appends to display, doesn't create new prompt)
+  void terminalPrint(String text) {
+    setState(() {
+      // Move cursor to end and append text with newline
+      _terminalText += '\n$text';
+      _cursorPosition = _terminalText.length;
+    });
+  }
+
+  /// Request input from user with an optional prompt
+  /// Returns a Future that completes when user presses ENTER
+  Future<String> readline([String? prompt]) {
+    final completer = Completer<String>();
+    
+    setState(() {
+      _waitingForInput = true;
+      _readlinePrompt = prompt;
+      _readlineCallback = (String input) {
+        completer.complete(input);
+        _waitingForInput = false;
+        _readlinePrompt = null;
+        _readlineCallback = null;
+      };
+      
+      // Add prompt if provided, otherwise just position for input
+      if (prompt != null && prompt.isNotEmpty) {
+        _terminalText += '\n$prompt';
+      } else {
+        _terminalText += '\n';
+      }
+      _currentPromptPosition = _terminalText.length;
+      _cursorPosition = _terminalText.length;
+    });
+    
+    return completer.future;
+  }
+
   /// Get the current input text (after the current prompt, may be multi-line)
   String _getCurrentLine() {
-    final inputStart = _currentPromptPosition + _promptSymbol.length;
+    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+    final inputStart = _currentPromptPosition + promptLength;
     return _terminalText.substring(inputStart).trim();
   }
 
   /// Replace current input with text from history (handles multi-line)
   void _replaceCurrentLine(String text) {
-    final inputStart = _currentPromptPosition + _promptSymbol.length;
+    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+    final inputStart = _currentPromptPosition + promptLength;
     _terminalText = _terminalText.substring(0, inputStart) + text;
     _cursorPosition = _terminalText.length;
   }
@@ -191,22 +243,6 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
       // Keep previous valid result
       print(e);
     }
-    
-    // Print a concise mapping of display characters -> wheel indices once per display change
-    if (_displayValue != _lastDisplayDebug) {
-      const _wheelChars =
-          ' 0123456789'
-          'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-          'abcdefghijklmnopqrstuvwxyz'
-          '+-*/=<>!?.,;:\'"()[]{}@#\$%&_|\\';
-      final indices = _displayValue.split('').map((c) {
-        final idx = _wheelChars.indexOf(c);
-        return idx == -1 ? '?': idx.toString();
-      }).join(',');
-      // Single-line debug print (non-spammy)
-      // ignore: avoid_print
-      _lastDisplayDebug = _displayValue;
-    }
   }
 
   /// Handle up arrow: command history on last line, cursor movement otherwise
@@ -215,8 +251,14 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     
     if (!isInInputSection) return;
     
+    // Don't navigate history if waiting for readline input
+    if (_waitingForInput) {
+      return; // Just stay in place, don't allow history navigation during readline
+    }
+    
     // Check if we're on the first line of input
-    final inputStart = _currentPromptPosition + _promptSymbol.length;
+    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+    final inputStart = _currentPromptPosition + promptLength;
     final firstNewlineInInput = _terminalText.indexOf('\n', inputStart);
     final isOnFirstLine = firstNewlineInInput == -1 || _cursorPosition <= firstNewlineInInput;
     
@@ -248,6 +290,11 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     
     if (!isInInputSection) return;
     
+    // Don't navigate history if waiting for readline input
+    if (_waitingForInput) {
+      return; // Just stay in place, don't allow history navigation during readline
+    }
+    
     // Check if there's a next line in the current input
     final nextNewline = _terminalText.indexOf('\n', _cursorPosition);
     final isOnLastLine = nextNewline == -1;
@@ -278,7 +325,8 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
         if (_cursorPosition > 0) {
           _cursorPosition--;
           // Don't allow cursor before the current prompt
-          final promptEnd = _currentPromptPosition + _promptSymbol.length;
+          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+          final promptEnd = _currentPromptPosition + promptLength;
           if (_cursorPosition < promptEnd) {
             _cursorPosition = promptEnd;
           }
@@ -314,26 +362,44 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
                          _terminalText.substring(_cursorPosition);
           _cursorPosition += 1;
         } else {
-          // Regular ENTER: Execute command and create new prompt
-          final inputStart = _currentPromptPosition + _promptSymbol.length;
+          // Regular ENTER: Handle based on whether we're waiting for readline or executing command
+          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+          final inputStart = _currentPromptPosition + promptLength;
           final currentInput = _terminalText.substring(inputStart).trim();
           
-          if (currentInput.isNotEmpty) {
-            _commandHistory.add(currentInput);
-            _historyIndex = -1;
-            _currentInput = '';
-            // TODO: Execute/evaluate command here
+          if (_waitingForInput && _readlineCallback != null) {
+            // Readline mode: complete the readline future with the input
+            _readlineCallback!(currentInput);
+            // Don't add to history or create new prompt - let the program control flow
+          } else {
+            // Normal command mode: execute and add to history
+            if (currentInput.isNotEmpty) {
+              _commandHistory.add(currentInput);
+              _historyIndex = -1;
+              _currentInput = '';
+              // TODO: Execute/evaluate command here
+              try {
+                final result = Engine.calculate(currentInput);
+
+                final (formatted, padding) = _formatResult(result);
+                terminalPrint(formatted);
+              } catch (e) {
+                // Keep previous valid result
+                terminalPrint(e.toString());
+              }
+            }
+            
+            // Move cursor to end and add new prompt
+            _terminalText += '\n$_promptSymbol';
+            _currentPromptPosition = _terminalText.length - _promptSymbol.length;
+            _cursorPosition = _terminalText.length;
           }
-          
-          // Move cursor to end and add new prompt
-          _terminalText += '\n$_promptSymbol';
-          _currentPromptPosition = _terminalText.length - _promptSymbol.length;
-          _cursorPosition = _terminalText.length;
         }
       } else if (key == 'BACK') {
         if (_cursorPosition > 0) {
           // Don't allow deleting the prompt or before it
-          final promptEnd = _currentPromptPosition + _promptSymbol.length;
+          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+          final promptEnd = _currentPromptPosition + promptLength;
           
           if (_cursorPosition > promptEnd) {
             _terminalText = _terminalText.substring(0, _cursorPosition - 1) + 
@@ -355,6 +421,16 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
                        _terminalText.substring(_cursorPosition);
         _cursorPosition++;
       } else {
+        // Check if this is a function name - insert with parentheses
+        if (_functionNames.contains(key)) {
+          _terminalText = _terminalText.substring(0, _cursorPosition) + 
+                         key + '()' + 
+                         _terminalText.substring(_cursorPosition);
+          _cursorPosition += key.length + 1; // Position cursor inside parentheses
+          _evaluateCurrentInput();
+          return;
+        }
+        
         // Apply shift mapping if shift is pressed
         String charToInsert = key;
         if (_shiftPressed && _shiftMap.containsKey(key)) {
@@ -497,111 +573,24 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
           width: double.infinity,
           height: double.infinity,
           color: const Color(0xFF2B2B2B),
-          child: Column(
+          child: Stack(
             children: [
-              // Terminal Display
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: GestureDetector(
-                    onTapDown: (details) {
-                      // Calculate cursor position from tap location
-                      _focusNode.requestFocus();
+              Column(
+                children: [
+                  // Terminal Display
+                  TerminalDisplay(
+                    terminalText: _terminalText,
+                    cursorPosition: _cursorPosition,
+                    showCursor: _showCursor,
+                    currentPromptPosition: _currentPromptPosition,
+                    promptSymbol: _promptSymbol,
+                    onTapRequest: () => _focusNode.requestFocus(),
+                    onCursorPositionChanged: (newPosition) {
+                      setState(() {
+                        _cursorPosition = newPosition;
+                      });
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF001100),
-                        borderRadius: BorderRadius.circular(48),
-                        border: Border.all(
-                          color: const Color(0xFF00FF00),
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF00FF00).withValues(alpha: 0.6),
-                            blurRadius: 40,
-                            spreadRadius: 6,
-                          ),
-                          const BoxShadow(
-                            color: Colors.black87,
-                            blurRadius: 15,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: SingleChildScrollView(
-                        reverse: true,
-                        child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return GestureDetector(
-                            onTapDown: (details) {
-                                // Calculate approximate cursor position
-                                final textPainter = TextPainter(
-                                  text: TextSpan(
-                                    text: _terminalText,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 20,
-                                      color: Color(0xFF00FF00),
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  textDirection: TextDirection.ltr,
-                                  maxLines: null,
-                                )..layout(maxWidth: constraints.maxWidth);
-                                
-                                final position = textPainter.getPositionForOffset(
-                                  details.localPosition,
-                                );
-                                
-                                setState(() {
-                                  final clickedPosition = position.offset.clamp(0, _terminalText.length);
-                                  
-                                  // Only allow clicking within current input section (after current prompt)
-                                  final minPosition = _currentPromptPosition + _promptSymbol.length;
-                                  _cursorPosition = clickedPosition.clamp(minPosition, _terminalText.length);
-                                });
-                                _focusNode.requestFocus();
-                              },
-                              child: RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 20,
-                                    color: Color(0xFF00FF00),
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 1.2,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: _terminalText.substring(0, _cursorPosition),
-                                    ),
-                                    WidgetSpan(
-                                      alignment: PlaceholderAlignment.baseline,
-                                      baseline: TextBaseline.alphabetic,
-                                      child: Container(
-                                        width: 12,
-                                        height: 24,
-                                        color: _showCursor ? const Color(0xFF00FF00) : Colors.transparent,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: _terminalText.substring(_cursorPosition),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
                   ),
-                ),
-              ),
               
               // Cash Register Display
               Center(
@@ -614,15 +603,24 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
                 ),
               ),
               
-              // Keyboard
-              SteampunkKeyboard(
-                keyboardLayout: _keyboardLayout,
-                shiftMap: _shiftMap,
-                pressedKey: _pressedKey,
-                isShifted: _shiftPressed,
-                virtualShiftToggled: _virtualShiftToggled,
-                physicalShiftPressed: _physicalShiftPressed,
-                onKeyPress: _handleKeyPress,
+                  // Keyboard
+                  SteampunkKeyboard(
+                    keyboardLayout: _keyboardLayout,
+                    shiftMap: _shiftMap,
+                    pressedKey: _pressedKey,
+                    isShifted: _shiftPressed,
+                    virtualShiftToggled: _virtualShiftToggled,
+                    physicalShiftPressed: _physicalShiftPressed,
+                    onKeyPress: _handleKeyPress,
+                  ),
+                ],
+              ),
+              // Post-it note overlapping terminal lower right corner
+              Positioned(
+                top: null,
+                bottom: 300,
+                right: 10,
+                child: PostItNote(),
               ),
             ],
           ),

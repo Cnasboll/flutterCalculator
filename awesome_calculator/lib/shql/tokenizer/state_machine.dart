@@ -11,6 +11,7 @@ enum ECharCodeClasses {
   underscore,
   comma,
   dot,
+  powOp,
   mulop,
   divOp,
   modOp,
@@ -52,6 +53,7 @@ enum TokenizerState {
   acceptIdentifier,
   acceptDivOp,
   acceptModOp,
+  acceptPowOp,
   acceptMulOp,
   acceptPlusOp,
   acceptMinusOp,
@@ -194,6 +196,7 @@ class StateMachine {
       '_': ECharCodeClasses.underscore,
       ',': ECharCodeClasses.comma,
       '.': ECharCodeClasses.dot,
+      '^': ECharCodeClasses.powOp,
       '*': ECharCodeClasses.mulop,
       '/': ECharCodeClasses.divOp,
       '%': ECharCodeClasses.modOp,
@@ -245,6 +248,8 @@ class StateMachine {
           TokenizerState.acceptDivOp,
       (TokenizerState.start, ECharCodeClasses.modOp):
           TokenizerState.acceptModOp,
+      (TokenizerState.start, ECharCodeClasses.powOp):
+          TokenizerState.acceptPowOp,
       (TokenizerState.start, ECharCodeClasses.mulop):
           TokenizerState.acceptMulOp,
       (TokenizerState.start, ECharCodeClasses.plusOp):
@@ -323,6 +328,7 @@ class StateMachine {
       TokenizerState.acceptDot: TokenTypes.dot,
       TokenizerState.acceptDivOp: TokenTypes.div,
       TokenizerState.acceptModOp: TokenTypes.mod,
+      TokenizerState.acceptPowOp: TokenTypes.pow,
       TokenizerState.acceptEq: TokenTypes.eq,
       TokenizerState.acceptFloat: TokenTypes.floatLiteral,
       TokenizerState.acceptMatch: TokenTypes.match,

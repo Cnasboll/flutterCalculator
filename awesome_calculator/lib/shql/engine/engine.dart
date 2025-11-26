@@ -191,6 +191,13 @@ class Engine {
           }
           return argument1 * argument2;
         }
+      case Symbols.pow:
+        {
+          if (oneIsNull) {
+            return null;
+          }
+          return pow(argument1, argument2);
+        }
       case Symbols.neq:
         return argument1 != argument2 ? 1 : 0;
 

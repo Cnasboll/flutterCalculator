@@ -4,6 +4,7 @@ enum Symbols {
   memberAccess,
   inOp,
   not,
+  pow,
   mul,
   div,
   mod,
@@ -41,6 +42,7 @@ enum LiteralTypes {
 }
 
 enum TokenTypes {
+  pow,
   mul,
   div,
   mod,
@@ -235,6 +237,9 @@ class Token {
       // Not
       Symbols.not: precedence++,
 
+      // Exponentiation (right-associative, higher than mul/div)
+      Symbols.pow: precedence++,
+
       // Multiplication, division and remainder
       Symbols.mul: precedence,
       Symbols.div: precedence,
@@ -272,6 +277,7 @@ class Token {
   static Map<TokenTypes, Symbols> getSymbolTable() {
     return {
       TokenTypes.dot: Symbols.memberAccess,
+      TokenTypes.pow: Symbols.pow,
       TokenTypes.mul: Symbols.mul,
       TokenTypes.div: Symbols.div,
       TokenTypes.mod: Symbols.mod,

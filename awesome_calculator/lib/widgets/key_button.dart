@@ -80,9 +80,12 @@ class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMix
   Widget build(BuildContext context) {
     // Always use widget.baseKey which contains the original unshifted key
     final baseKey = widget.baseKey!;
+    final isFunctionKey = baseKey == 'SIN' || baseKey == 'COS' || baseKey == 'TAN' || 
+                          baseKey == 'ASIN' || baseKey == 'ACOS' || baseKey == 'ATAN' ||
+                          baseKey == 'SQRT' || baseKey == 'EXP' || baseKey == 'LOG';
     final isWide = baseKey == 'SPACE' || baseKey == 'BACK' || baseKey == 'DEL' || baseKey == 'SHIFT' || baseKey == 'TAB';
     final isEnter = baseKey == 'ENTER';
-    final width = isWide ? 60.0 : (isEnter ? 50.0 : 24.0);
+    final width = isFunctionKey ? 45.0 : (isWide ? 60.0 : (isEnter ? 50.0 : 24.0));
     
     final unshifted = baseKey;
     final shifted = widget.shiftMap[baseKey] ?? baseKey;
