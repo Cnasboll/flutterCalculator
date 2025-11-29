@@ -11,6 +11,8 @@ enum ECharCodeClasses {
   underscore,
   comma,
   dot,
+  colon,
+  semiColon,
   powOp,
   mulop,
   divOp,
@@ -40,6 +42,7 @@ enum TokenizerState {
   escapeSingleQuotedString,
   doubleQuotedRawString,
   singleQuotedRawString,
+  colon,
   exclamation,
   lt,
   gt,
@@ -66,6 +69,9 @@ enum TokenizerState {
   acceptSingleQuotedRawString,
   acceptComma,
   acceptDot,
+  acceptColon,
+  acceptAssignment,
+  acceptSemiColon,
   acceptNot,
   acceptGt,
   acceptLt,
@@ -164,7 +170,6 @@ class StateMachine {
   }
 
   static ECharCodeClasses? categorize(Char charCode) {
-
     var characterString = String.fromCharCode(charCode);
     var charCodeClass = _charCodeClassTable[characterString];
 
@@ -196,6 +201,8 @@ class StateMachine {
       '_': ECharCodeClasses.underscore,
       ',': ECharCodeClasses.comma,
       '.': ECharCodeClasses.dot,
+      ':': ECharCodeClasses.colon,
+      ';': ECharCodeClasses.semiColon,
       '^': ECharCodeClasses.powOp,
       '*': ECharCodeClasses.mulop,
       '/': ECharCodeClasses.divOp,
@@ -231,6 +238,9 @@ class StateMachine {
           TokenizerState.doubleQuotedRawString,
       (TokenizerState.r, ECharCodeClasses.singleQuote):
           TokenizerState.singleQuotedRawString,
+      (TokenizerState.start, ECharCodeClasses.colon): TokenizerState.colon,
+      (TokenizerState.start, ECharCodeClasses.semiColon):
+          TokenizerState.acceptSemiColon,
       (TokenizerState.start, ECharCodeClasses.exclamation):
           TokenizerState.exclamation,
       (TokenizerState.start, ECharCodeClasses.gt): TokenizerState.gt,
@@ -261,7 +271,7 @@ class StateMachine {
       (TokenizerState.start, ECharCodeClasses.dot): TokenizerState.acceptDot,
       (TokenizerState.start, ECharCodeClasses.whitespace): TokenizerState.start,
       (TokenizerState.identifier, ECharCodeClasses.r):
-          TokenizerState.identifier,      
+          TokenizerState.identifier,
       (TokenizerState.identifier, ECharCodeClasses.letter):
           TokenizerState.identifier,
       (TokenizerState.identifier, ECharCodeClasses.underscore):
@@ -288,6 +298,8 @@ class StateMachine {
           TokenizerState.acceptSingleQuotedString,
       (TokenizerState.singleQuotedRawString, ECharCodeClasses.singleQuote):
           TokenizerState.acceptSingleQuotedRawString,
+      (TokenizerState.colon, ECharCodeClasses.eq):
+          TokenizerState.acceptAssignment,
       (TokenizerState.exclamation, ECharCodeClasses.eq):
           TokenizerState.acceptNeq,
       (TokenizerState.exclamation, ECharCodeClasses.tilde):
@@ -295,8 +307,6 @@ class StateMachine {
       (TokenizerState.lt, ECharCodeClasses.eq): TokenizerState.acceptLtEq,
       (TokenizerState.lt, ECharCodeClasses.gt): TokenizerState.acceptNeq,
       (TokenizerState.gt, ECharCodeClasses.eq): TokenizerState.acceptGtEq,
-      (TokenizerState.acceptMatch, ECharCodeClasses.tilde):
-          TokenizerState.acceptMatch,
     };
   }
 
@@ -306,6 +316,7 @@ class StateMachine {
       TokenizerState.identifier: TokenizerState.acceptIdentifier,
       TokenizerState.number: TokenizerState.acceptNumber,
       TokenizerState.float: TokenizerState.acceptFloat,
+      TokenizerState.colon: TokenizerState.acceptColon,
       TokenizerState.exclamation: TokenizerState.acceptNot,
       TokenizerState.gt: TokenizerState.acceptGt,
       TokenizerState.lt: TokenizerState.acceptLt,
@@ -326,6 +337,9 @@ class StateMachine {
     return {
       TokenizerState.acceptComma: TokenTypes.comma,
       TokenizerState.acceptDot: TokenTypes.dot,
+      TokenizerState.acceptColon: TokenTypes.colon,
+      TokenizerState.acceptSemiColon: TokenTypes.semiColon,
+      TokenizerState.acceptAssignment: TokenTypes.assignment,
       TokenizerState.acceptDivOp: TokenTypes.div,
       TokenizerState.acceptModOp: TokenTypes.mod,
       TokenizerState.acceptPowOp: TokenTypes.pow,

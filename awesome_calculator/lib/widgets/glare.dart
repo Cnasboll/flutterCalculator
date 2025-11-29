@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 class Glare extends StatelessWidget {
-  const Glare({
-    super.key,
-  });
+  const Glare({super.key});
 
   @override
   Widget build(BuildContext context) {

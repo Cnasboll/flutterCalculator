@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A single cash register wheel that can display numbers, letters, and symbols.
-/// 
+///
 /// Features:
 /// - Smooth rotation animation between characters
 /// - Bronze/brass metallic appearance
@@ -44,9 +44,10 @@ class _CashRegisterWheelState extends State<CashRegisterWheel>
       vsync: this,
       duration: widget.animationDuration,
     );
-    _animation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -120,7 +121,7 @@ class _CashRegisterWheelState extends State<CashRegisterWheel>
                 blurRadius: 8,
                 offset: Offset(2, 2),
               ),
-                BoxShadow(
+              BoxShadow(
                 color: const Color(0xFFDAA520).withValues(alpha: 0.3),
                 blurRadius: 4,
                 offset: const Offset(-1, -1),
@@ -134,10 +135,11 @@ class _CashRegisterWheelState extends State<CashRegisterWheel>
                 // Wheel characters
                 Positioned.fill(
                   child: ClipRect(
-                      child: OverflowBox(
-                        // Use a tripled char column so we can smoothly wrap-around
-                        maxHeight: _wheelChars.length * 3 * charHeight,
-                        child: Builder(builder: (context) {
+                    child: OverflowBox(
+                      // Use a tripled char column so we can smoothly wrap-around
+                      maxHeight: _wheelChars.length * 3 * charHeight,
+                      child: Builder(
+                        builder: (context) {
                           // Compute integer base and fractional part for smooth animation
                           final totalChars = _wheelChars.length;
                           final baseIndex = rotationOffset.floor();
@@ -160,111 +162,137 @@ class _CashRegisterWheelState extends State<CashRegisterWheel>
                                     SizedBox(
                                       height: charHeight,
                                       child: Center(
-                                          child: Text(
-                                        chars[prevIndex],
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'monospace',
-                                          color: Color(0xFFFFE4B5).withValues(alpha: 0.71),
-                                          shadows: [
-                                            // faint top-left highlight for subtle emboss
-                                            Shadow(
-                                              color: Colors.white.withValues(alpha: 0.55),
-                                              offset: Offset(-0.6, -0.6),
-                                              blurRadius: 0.0,
-                                            ),
-                                            // warm mid glow
-                                            Shadow(
-                                              color: const Color(0xFFDAA520).withValues(alpha: 0.20),
-                                              offset: Offset(0, 0.6),
-                                              blurRadius: 2.5,
-                                            ),
-                                            // small contour shadow (bottom-right)
-                                            Shadow(
-                                              color: Colors.black.withValues(alpha: 0.28),
-                                              offset: Offset(0.6, 0.9),
-                                              blurRadius: 1.2,
-                                            ),
-                                          ],
+                                        child: Text(
+                                          chars[prevIndex],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'monospace',
+                                            color: Color(
+                                              0xFFFFE4B5,
+                                            ).withValues(alpha: 0.71),
+                                            shadows: [
+                                              // faint top-left highlight for subtle emboss
+                                              Shadow(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.55,
+                                                ),
+                                                offset: Offset(-0.6, -0.6),
+                                                blurRadius: 0.0,
+                                              ),
+                                              // warm mid glow
+                                              Shadow(
+                                                color: const Color(
+                                                  0xFFDAA520,
+                                                ).withValues(alpha: 0.20),
+                                                offset: Offset(0, 0.6),
+                                                blurRadius: 2.5,
+                                              ),
+                                              // small contour shadow (bottom-right)
+                                              Shadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.28,
+                                                ),
+                                                offset: Offset(0.6, 0.9),
+                                                blurRadius: 1.2,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      )),
+                                      ),
                                     ),
                                     SizedBox(
                                       height: charHeight,
                                       child: Center(
-                                          child: Text(
-                                        chars[centerIndex],
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w900,
-                                          fontFamily: 'monospace',
-                                          color: Color(0xFFFFF8E1),
-                                          letterSpacing: 0.3,
-                                          shadows: [
-                                            // light highlight (top-left)
-                                            Shadow(
-                                              color: Colors.white.withValues(alpha: 0.85),
-                                              offset: Offset(-1, -1),
-                                              blurRadius: 0,
-                                            ),
-                                            // warm glow / bloom
-                                            Shadow(
-                                              color: const Color(0xFFDAA520).withValues(alpha: 0.44),
-                                              offset: Offset(0, 1),
-                                              blurRadius: 6,
-                                            ),
-                                            // darker contour shadow (bottom-right)
-                                            Shadow(
-                                              color: Colors.black.withValues(alpha: 0.50),
-                                              offset: Offset(1, 2),
-                                              blurRadius: 2,
-                                            ),
-                                          ],
+                                        child: Text(
+                                          chars[centerIndex],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w900,
+                                            fontFamily: 'monospace',
+                                            color: Color(0xFFFFF8E1),
+                                            letterSpacing: 0.3,
+                                            shadows: [
+                                              // light highlight (top-left)
+                                              Shadow(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.85,
+                                                ),
+                                                offset: Offset(-1, -1),
+                                                blurRadius: 0,
+                                              ),
+                                              // warm glow / bloom
+                                              Shadow(
+                                                color: const Color(
+                                                  0xFFDAA520,
+                                                ).withValues(alpha: 0.44),
+                                                offset: Offset(0, 1),
+                                                blurRadius: 6,
+                                              ),
+                                              // darker contour shadow (bottom-right)
+                                              Shadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.50,
+                                                ),
+                                                offset: Offset(1, 2),
+                                                blurRadius: 2,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      )),
+                                      ),
                                     ),
                                     SizedBox(
                                       height: charHeight,
                                       child: Center(
-                                          child: Text(
-                                        chars[nextIndex],
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'monospace',
-                                          color: Color(0xFFFFE4B5).withValues(alpha: 0.71),
-                                          shadows: [
-                                            // faint top-left highlight for subtle emboss
-                                            Shadow(
-                                              color: Colors.white.withValues(alpha: 0.55),
-                                              offset: Offset(-0.6, -0.6),
-                                              blurRadius: 0.0,
-                                            ),
-                                            // warm mid glow
-                                            Shadow(
-                                              color: const Color(0xFFDAA520).withValues(alpha: 0.20),
-                                              offset: Offset(0, 0.6),
-                                              blurRadius: 2.5,
-                                            ),
-                                            // small contour shadow (bottom-right)
-                                            Shadow(
-                                              color: Colors.black.withValues(alpha: 0.28),
-                                              offset: Offset(0.6, 0.9),
-                                              blurRadius: 1.2,
-                                            ),
-                                          ],
+                                        child: Text(
+                                          chars[nextIndex],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'monospace',
+                                            color: Color(
+                                              0xFFFFE4B5,
+                                            ).withValues(alpha: 0.71),
+                                            shadows: [
+                                              // faint top-left highlight for subtle emboss
+                                              Shadow(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.55,
+                                                ),
+                                                offset: Offset(-0.6, -0.6),
+                                                blurRadius: 0.0,
+                                              ),
+                                              // warm mid glow
+                                              Shadow(
+                                                color: const Color(
+                                                  0xFFDAA520,
+                                                ).withValues(alpha: 0.20),
+                                                offset: Offset(0, 0.6),
+                                                blurRadius: 2.5,
+                                              ),
+                                              // small contour shadow (bottom-right)
+                                              Shadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.28,
+                                                ),
+                                                offset: Offset(0.6, 0.9),
+                                                blurRadius: 1.2,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      )),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           );
-                        }),
+                        },
                       ),
                     ),
+                  ),
                 ),
                 // Viewport window (strong vignette to hide adjacent chars)
                 Positioned.fill(

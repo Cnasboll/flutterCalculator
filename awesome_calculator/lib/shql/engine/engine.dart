@@ -1,6 +1,34 @@
 import 'dart:core';
 import 'dart:math';
 
+import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/addition_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/division_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/modulus_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/subtraction_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/unary_minus_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/assignment_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/boolean/and_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/boolean/not_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/boolean/or_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/boolean/xor_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/constant_node.dart';
+import 'package:awesome_calculator/shql/execution/execution_node.dart';
+import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/identifier_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/function_definition_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
+import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/pattern/in_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/pattern/match_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/pattern/not_match_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/equality_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/greater_than_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/greater_than_or_equal_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/less_than_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
@@ -23,28 +51,50 @@ class Engine {
     constantsSet ??= prepareConstantsSet();
 
     var tokenEnumerator = v.lookahead();
-    var p = Parser.parse(tokenEnumerator, constantsSet);
 
-    if (tokenEnumerator.hasNext) {
-      throw RuntimeException(
-        'Unexpcted token "${tokenEnumerator.next().lexeme}" after parsing expression.',
-      );
+    List<ParseTree> p = [];
+    while (tokenEnumerator.hasNext) {
+      if (p.isNotEmpty) {
+        if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
+          throw RuntimeException(
+            'Unexpcted token "${tokenEnumerator.next().lexeme}" after parsing expression.',
+          );
+        }
+        // Consume the semicolon
+        tokenEnumerator.next();
+      }
+
+      if (!tokenEnumerator.hasNext) {
+        break;
+      }
+      p.add(Parser.parse(tokenEnumerator, constantsSet));
     }
-    return evaluate(p, constantsSet);
+    switch (p.length) {
+      case 0:
+        return null;
+      case 1:
+        return evaluate(p.first, constantsSet);
+      default:
+        dynamic lastResult;
+        for (var tree in p) {
+          lastResult = evaluate(tree, constantsSet);
+        }
+        return lastResult;
+    }
   }
 
   static ConstantsSet prepareConstantsSet() {
     var constantsSet = ConstantsSet();
 
     // Register mathematical constants
-    for (var entry in _int_constants.entries) {
+    for (var entry in _intConstants.entries) {
       constantsSet.constants.register(
         entry.value,
         constantsSet.identifiers.include(entry.key),
       );
     }
 
-    for (var entry in _double_constants.entries) {
+    for (var entry in _doubleConstants.entries) {
       constantsSet.constants.register(
         entry.value,
         constantsSet.identifiers.include(entry.key),
@@ -52,250 +102,122 @@ class Engine {
     }
 
     // Register mathematical functions
-    for (var entry in _unaryFunctions.entries) {
+    for (var entry in unaryFunctions.entries) {
       constantsSet.identifiers.include(entry.key);
     }
-    for (var entry in _binaryFunctions.entries) {
+    for (var entry in binaryFunctions.entries) {
       constantsSet.identifiers.include(entry.key);
     }
     return constantsSet;
   }
 
   static dynamic evaluate(ParseTree parseTree, ConstantsSet constantsSet) {
+    var executionNode = createExecutionNode(parseTree);
+    if (executionNode == null) {
+      throw RuntimeException('Failed to create execution node.');
+    }
+
+    while (!executionNode.tick(constantsSet)) {}
+
+    if (executionNode.error != null) {
+      throw RuntimeException(executionNode.error!);
+    }
+
+    return executionNode.result;
+  }
+
+  static ExecutionNode? createExecutionNode(ParseTree parseTree) {
     if (parseTree.symbol == Symbols.nullLiteral) {
-      return null;
+      return AprioriExecutionNode(null);
     }
-    
-    var result = evaluateTerminal(parseTree, constantsSet);
-    if (result != null) {
-      return result;
+
+    var executionNode = tryCreateTerminalExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
     }
-    result = evaluateUnary(parseTree, constantsSet);
-    if (result != null) {
-      return result;
+
+    executionNode = tryCreateUnaryExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
     }
 
     if (parseTree.children.length < 2) {
-      return double.nan;
+      return AprioriExecutionNode(double.nan);
     }
 
     if (parseTree.symbol == Symbols.memberAccess) {
-      return evaluateMemberAccess(parseTree, constantsSet);
+      return MemberAccessExecutionNode(parseTree);
     }
 
-    return evaluateBinaryOperator(
-      parseTree.symbol,
-      evaluate(parseTree.children[0], constantsSet),
-      evaluate(parseTree.children[1], constantsSet),
-    );
-  }
-
-  static dynamic evaluateBinaryOperator(
-    Symbols symbol,
-    dynamic argument1,
-    argument2,
-  ) {
-    final oneIsNull = [argument1, argument2].contains(null);
-    switch (symbol) {
-      case Symbols.inOp:
-        {
-          if (argument2 is List) {
-            return argument2.contains(argument1) ? 1 : 0;
-          }
-          var lhs = argument1 is String ? argument1 : argument1.toString();
-          var rhs = argument2 is String ? argument2 : argument2.toString();
-          return rhs.contains(lhs) ? 1 : 0;
-        }
-      case Symbols.add:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return argument1 + argument2;
-        }
-
-      case Symbols.sub:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return argument1 - argument2;
-        }
-
-      case Symbols.div:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return argument1 / argument2;
-        }
-
-      case Symbols.eq:
-        {
-          return argument1 == argument2 ? 1 : 0;
-        }
-
-      case Symbols.match:
-      case Symbols.notMatch:
-        {
-          if (oneIsNull) {
-            return 0;
-          }
-
-          var negated = symbol == Symbols.notMatch;
-          var regex = RegExp(argument2.toString(), caseSensitive: false);
-          var match = regex.hasMatch(argument1.toString());
-          return negated ? (match ? 0 : 1) : (match ? 1 : 0);
-        }
-
-      case Symbols.gt:
-        {
-          if (oneIsNull) {
-            return 0;
-          }
-          return argument1 > argument2 ? 1 : 0;
-        }
-
-      case Symbols.gtEq:
-        {
-          if (oneIsNull) {
-            return 0;
-          }
-          return argument1 >= argument2 ? 1 : 0;
-        }
-      case Symbols.lt:
-        {
-          if (oneIsNull) {
-            return 0;
-          }
-          return argument1 < argument2 ? 1 : 0;
-        }
-      case Symbols.ltEq:
-        {
-          if (oneIsNull) {
-            return 0;
-          }
-          return argument1 <= argument2 ? 1 : 0;
-        }
-      case Symbols.mod:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return argument1 % argument2;
-        }
-      case Symbols.mul:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return argument1 * argument2;
-        }
-      case Symbols.pow:
-        {
-          if (oneIsNull) {
-            return null;
-          }
-          return pow(argument1, argument2);
-        }
-      case Symbols.neq:
-        return argument1 != argument2 ? 1 : 0;
-
-      case Symbols.and:
-        return (argument1 != 0) && (argument2 != 0) ? 1 : 0;
-      case Symbols.or:
-        return (argument1 != 0) || (argument2 != 0) ? 1 : 0;
-      case Symbols.xor:
-        return (argument1 != 0) != (argument2 != 0) ? 1 : 0;
-      default:
-        return double.nan;
+    if (parseTree.symbol == Symbols.functionDefinition) {
+      return FunctionDefinitionExecutionNode(parseTree);
     }
+
+    return createBinaryOperatorExecutionNode(parseTree);
   }
 
-  static dynamic evaluateTerminal(
-    ParseTree parseTree,
-    ConstantsSet constantsSet,
-  ) {
+  static ExecutionNode? createBinaryOperatorExecutionNode(ParseTree parseTree) {
+    var lhs = createExecutionNode(parseTree.children[0]);
+    var rhs = createExecutionNode(parseTree.children[1]);
     switch (parseTree.symbol) {
-      case Symbols.list:
-        return parseTree.children
-            .map((child) => evaluate(child, constantsSet))
-            .toList();
-      case Symbols.floatLiteral:
-        return constantsSet.constants.constants[parseTree.qualifier!] as double;
-      case Symbols.integerLiteral:
-        return constantsSet.constants.constants[parseTree.qualifier!] as int;
-      case Symbols.stringLiteral:
-        return constantsSet.constants.constants[parseTree.qualifier!] as String;
-      case Symbols.identifier:
-        return evaluateIdentifier(parseTree, constantsSet);
+      case Symbols.assignment:
+        return AssignmentExecutionNode(lhs!, rhs!);
+      case Symbols.inOp:
+        return InExecutionNode(lhs!, rhs!);
+      case Symbols.pow:
+        return ExponentiationExecutionNode(lhs!, rhs!);
+      case Symbols.mul:
+        return MultiplicationExecutionNode(lhs!, rhs!);
+      case Symbols.div:
+        return DivisionExecutionNode(lhs!, rhs!);
+      case Symbols.mod:
+        return ModulusExecutionNode(lhs!, rhs!);
+      case Symbols.add:
+        return AdditionExecutionNode(lhs!, rhs!);
+      case Symbols.sub:
+        return SubtractionExecutionNode(lhs!, rhs!);
+      case Symbols.lt:
+        return LessThanExecutionNode(lhs!, rhs!);
+      case Symbols.ltEq:
+        return LessThanOrEqualExecutionNode(lhs!, rhs!);
+      case Symbols.gt:
+        return GreaterThanExecutionNode(lhs!, rhs!);
+      case Symbols.gtEq:
+        return GreaterThanOrEqualExecutionNode(lhs!, rhs!);
+      case Symbols.eq:
+        return EqualityExecutionNode(lhs!, rhs!);
+      case Symbols.neq:
+        return NotEqualityExecutionNode(lhs!, rhs!);
+      case Symbols.match:
+        return MatchExecutionNode(lhs!, rhs!);
+      case Symbols.notMatch:
+        return NotMatchExecutionNode(lhs!, rhs!);
+      case Symbols.and:
+        return AndExecutionNode(lhs!, rhs!);
+      case Symbols.or:
+        return OrExecutionNode(lhs!, rhs!);
+      case Symbols.xor:
+        return XorExecutionNode(lhs!, rhs!);
       default:
         return null;
     }
   }
 
-  static dynamic evaluateIdentifier(
-    ParseTree parseTree,
-    ConstantsSet constantsSet,
-  ) {
-    var identifier = constantsSet.identifiers.constants[parseTree.qualifier!];
-    var (constant, index) = constantsSet.constants.getByIdentifier(
-      parseTree.qualifier!,
-    );
-    if (constant != null || index != null) {
-      if (parseTree.children.isNotEmpty) {
-        var argumentCount = parseTree.children.length;
-        if (argumentCount == 1) {
-          return Engine.evaluateBinaryOperator(
-            Symbols.mul,
-            constant,
-            evaluate(parseTree.children[0], constantsSet)
-          );
-        }
-        throw RuntimeException(
-          "Attempt to use constant $identifier as a function: ($argumentCount) argument(s) given.",
-        );
-      }
-      return constant;
+  static ExecutionNode? tryCreateTerminalExecutionNode(ParseTree parseTree) {
+    switch (parseTree.symbol) {
+      case Symbols.list:
+        return ListLiteralNode(parseTree);
+      case Symbols.floatLiteral:
+        return ConstantNode<double>(parseTree);
+      case Symbols.integerLiteral:
+        return ConstantNode<int>(parseTree);
+      case Symbols.stringLiteral:
+        return ConstantNode<String>(parseTree);
+      case Symbols.identifier:
+        return IdentifierExecutionNode(parseTree);
+      default:
+        return null;
     }
-
-    var unaryFunction = _unaryFunctions[identifier];
-    if (unaryFunction != null) {
-      if (parseTree.children.length != 1) {
-        var argumentCount = parseTree.children.length;
-        throw RuntimeException(
-          "Function $identifier() takes 1 argument, $argumentCount given.",
-        );
-      }
-      return unaryFunction(evaluate(parseTree.children.first, constantsSet));
-    }
-
-    var binaryFunction = _binaryFunctions[identifier];
-    if (binaryFunction != null) {
-      if (parseTree.children.length != 2) {
-        var argumentCount = parseTree.children.length;
-        throw RuntimeException(
-          "Function $identifier() takes 2 arguments, $argumentCount given.",
-        );
-      }
-      return binaryFunction(
-        evaluate(parseTree.children[0], constantsSet),
-        evaluate(parseTree.children[1], constantsSet),
-      );
-    }
-
-    if (parseTree.children.isNotEmpty) {
-      throw RuntimeException(
-        'Unidentified identifier "$identifier" used as a function.',
-      );
-    }
-    throw RuntimeException(
-      '''Unidentified identifier "$identifier" used as a constant.
-
-Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than:     name ~ Batman
-
-''',
-    );
   }
 
   static bool isUnary(Symbols symbol) {
@@ -306,110 +228,39 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     ].contains(symbol);
   }
 
-  static dynamic evaluateMemberAccess(
-    ParseTree parseTree,
-    ConstantsSet constantsSet,
-  ) {
-    if (parseTree.children.length != 2) {
-      throw RuntimeException('Member access must have exactly 2 children');
-    }
-
-    var leftChild = parseTree.children[0];
-    var rightChild = parseTree.children[1];
-
-    // Right side must always be an identifier
-    if (rightChild.symbol != Symbols.identifier) {
-      throw RuntimeException(
-        'Right side of member access must be an identifier',
-      );
-    }
-
-    ConstantsSet targetScope;
-
-    if (leftChild.symbol == Symbols.identifier) {
-      // Simple case: a.b
-      targetScope = constantsSet.getSubModelScope(leftChild.qualifier!);
-    } else if (leftChild.symbol == Symbols.memberAccess) {
-      // Recursive case: a.b.c (where a.b is another memberAccess)
-      // We need to resolve the left side to get the appropriate scope
-      targetScope = _resolveMemberAccessToScope(leftChild, constantsSet);
-    } else {
-      throw RuntimeException(
-        'Left side of member access must be an identifier or another member access',
-      );
-    }
-
-    return evaluateIdentifier(rightChild, targetScope);
-  }
-
-  static ConstantsSet _resolveMemberAccessToScope(
-    ParseTree memberAccessTree,
-    ConstantsSet constantsSet,
-  ) {
-    if (memberAccessTree.symbol != Symbols.memberAccess) {
-      throw RuntimeException('Expected member access parse tree');
-    }
-
-    var leftChild = memberAccessTree.children[0];
-    var rightChild = memberAccessTree.children[1];
-
-    if (rightChild.symbol != Symbols.identifier) {
-      throw RuntimeException(
-        'Right side of member access must be an identifier',
-      );
-    }
-
-    ConstantsSet intermediateScope;
-
-    if (leftChild.symbol == Symbols.identifier) {
-      // Base case: a.b - get sub-scope of a
-      intermediateScope = constantsSet.getSubModelScope(leftChild.qualifier!);
-    } else if (leftChild.symbol == Symbols.memberAccess) {
-      // Recursive case: resolve a.b first, then get its sub-scope
-      intermediateScope = _resolveMemberAccessToScope(leftChild, constantsSet);
-    } else {
-      throw RuntimeException(
-        'Left side of member access must be an identifier or another member access',
-      );
-    }
-
-    // Now get the sub-scope of the right identifier within the intermediate scope
-    return intermediateScope.getSubModelScope(rightChild.qualifier!);
-  }
-
-  static dynamic evaluateUnary(ParseTree parseTree, ConstantsSet constantsSet) {
+  static ExecutionNode? tryCreateUnaryExecutionNode(ParseTree parseTree) {
     if (!isUnary(parseTree.symbol)) {
       return null;
     }
     if (parseTree.children.isEmpty) {
-      return double.nan;
+      return AprioriExecutionNode(double.nan);
     }
 
-    var arg = evaluate(parseTree.children.first, constantsSet);
-    if (arg == null) {
-      return double.nan;
+    var operand = createExecutionNode(parseTree.children.first);
+    if (operand == null) {
+      return AprioriExecutionNode(double.nan);
     }
     switch (parseTree.symbol) {
       case Symbols.unaryMinus:
         // Unary minus
-        return -arg;
+        return UnaryMinusExecutionNode(operand);
       case Symbols.unaryPlus:
         // Unary plus
-        return arg;
+        return operand;
       case Symbols.not:
-        return arg == 0 ? 1 : 0;
+        return NotExecutionNode(operand);
       default:
         return null;
     }
   }
 
-  static final Map<String, int> _int_constants = {
+  static final Map<String, int> _intConstants = {
     "ANSWER": 42,
     "TRUE": 1,
     "FALSE": 0,
   };
 
-  static final Map<String, double> _double_constants = {
+  static final Map<String, double> _doubleConstants = {
     "E": e,
     "LN10": ln10,
     "LN2": ln2,
@@ -421,7 +272,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     "AVOGADRO": 6.0221408e+23,
   };
 
-  static final Map<String, dynamic Function(dynamic)> _unaryFunctions = {
+  static final Map<String, dynamic Function(dynamic)> unaryFunctions = {
     "SIN": (a) => sin(a),
     "COS": (a) => cos(a),
     "TAN": (a) => tan(a),
@@ -435,11 +286,11 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     "UPPERCASE": (a) => a.toString().toUpperCase(),
   };
 
-  static final Map<String, dynamic Function(dynamic, dynamic)>
-  _binaryFunctions = {
-    "MIN": (a, b) => min(a, b),
-    "MAX": (a, b) => max(a, b),
-    "ATAN2": (a, b) => atan2(a, b),
-    "POW": (a, b) => pow(a, b),
-  };
+  static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =
+      {
+        "MIN": (a, b) => min(a, b),
+        "MAX": (a, b) => max(a, b),
+        "ATAN2": (a, b) => atan2(a, b),
+        "POW": (a, b) => pow(a, b),
+      };
 }

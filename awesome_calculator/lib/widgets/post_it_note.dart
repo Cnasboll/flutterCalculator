@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 class PostItNote extends StatelessWidget {
-  const PostItNote({
-    super.key,
-  });
+  const PostItNote({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,17 +37,14 @@ class PostItNote extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFFDDDD77),
-                      const Color(0xFFEEEE80),
-                    ],
+                    colors: [const Color(0xFFDDDD77), const Color(0xFFEEEE80)],
                   ),
                 ),
               ),
             ),
           ),
           // Post-it content
-          Container(
+          SizedBox(
             width: 64,
             height: 64,
             child: Padding(
@@ -86,7 +81,6 @@ class PostItNote extends StatelessWidget {
   }
 }
 
-
 /// Custom clipper for post-it note folded corner
 class _TriangleClipper extends CustomClipper<Path> {
   @override
@@ -99,7 +93,6 @@ class _TriangleClipper extends CustomClipper<Path> {
     return path;
   }
 
- 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

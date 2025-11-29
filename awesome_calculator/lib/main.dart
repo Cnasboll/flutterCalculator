@@ -17,9 +17,7 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF2B2B2B),
       ),
-      home: const Scaffold(
-        body: AncientComputer(),
-      ),
+      home: const Scaffold(body: AncientComputer()),
     );
   }
 }

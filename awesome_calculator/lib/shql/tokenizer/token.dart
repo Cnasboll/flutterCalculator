@@ -2,6 +2,9 @@ enum Symbols {
   none,
   //Operators:
   memberAccess,
+  colon,
+  semiColon,
+  assignment,
   inOp,
   not,
   pow,
@@ -21,10 +24,22 @@ enum Symbols {
   and,
   or,
   xor,
+  ifKeyword,
+  thenKeyword,
+  elseKeyword,
+  whileKeyword,
+  doKeyword,
+  beginKeyword,
+  endKeyword,
+  functionDefinition,
+  forKeyword,
+  toKeyword,
+  stepKeyword,
   unaryPlus,
   unaryMinus,
   identifier,
   list,
+  functionArgumentList,
   integerLiteral,
   floatLiteral,
   stringLiteral,
@@ -70,6 +85,9 @@ enum TokenTypes {
   identifier,
   comma,
   dot,
+  colon,
+  semiColon,
+  assignment,
 }
 
 enum Keywords {
@@ -79,6 +97,17 @@ enum Keywords {
   andKeyword,
   orKeyword,
   xorKeyword,
+  ifKeyword,
+  thenKeyword,
+  elseKeyword,
+  whileKeyword,
+  doKeyword,
+  beginKeyword,
+  endKeyword,
+  fnKeyword,
+  forKeyword,
+  toKeyword,
+  stepKeyword,
   nullKeyword,
 }
 
@@ -119,7 +148,6 @@ class Token {
   factory Token.parser(TokenTypes tokenType, String lexeme) {
     Keywords keyword = Keywords.none;
     LiteralTypes literalType = LiteralTypes.none;
-    int operatorPrecedence = -1;
     Symbols symbol = Symbols.none;
 
     switch (tokenType) {
@@ -149,11 +177,19 @@ class Token {
       default:
         break;
     }
-    var operatorSymbol = _keywordOpTable[keyword] ?? _symbolTable[tokenType];
-    if (operatorSymbol != null) {
-      symbol = operatorSymbol;
-      operatorPrecedence = _operatorPrecendences[symbol]!;
+
+    var keywordSymbol = _keywordOpTable[keyword];
+    if (keywordSymbol != null) {
+      symbol = keywordSymbol;
+    } else {
+      var operatorSymbol = _symbolTable[tokenType];
+      if (operatorSymbol != null) {
+        symbol = operatorSymbol;
+      }
     }
+
+    int operatorPrecedence = _operatorPrecendences[symbol] ?? -1;
+
     return Token(
       lexeme,
       tokenType,
@@ -220,9 +256,20 @@ class Token {
       "AND": Keywords.andKeyword,
       "OCH": Keywords.andKeyword,
       "OR": Keywords.orKeyword,
-      "ELLER": Keywords.orKeyword,    
+      "ELLER": Keywords.orKeyword,
       "XOR": Keywords.xorKeyword,
       "ANTINGEN_ELLER": Keywords.xorKeyword,
+      "IF": Keywords.ifKeyword,
+      "THEN": Keywords.thenKeyword,
+      "ELSE": Keywords.elseKeyword,
+      "WHILE": Keywords.whileKeyword,
+      "DO": Keywords.doKeyword,
+      "BEGIN": Keywords.beginKeyword,
+      "END": Keywords.endKeyword,
+      "FN": Keywords.fnKeyword,
+      "FOR": Keywords.forKeyword,
+      "TO": Keywords.toKeyword,
+      "STEP": Keywords.stepKeyword,
       "NULL": Keywords.nullKeyword,
     };
   }
@@ -270,6 +317,9 @@ class Token {
       Symbols.or: precedence,
       Symbols.xor: precedence++,
 
+      // Assignment
+      Symbols.assignment: precedence++,
+
       Symbols.nullLiteral: precedence,
     };
   }
@@ -277,6 +327,9 @@ class Token {
   static Map<TokenTypes, Symbols> getSymbolTable() {
     return {
       TokenTypes.dot: Symbols.memberAccess,
+      TokenTypes.colon: Symbols.colon,
+      TokenTypes.semiColon: Symbols.semiColon,
+      TokenTypes.assignment: Symbols.assignment,
       TokenTypes.pow: Symbols.pow,
       TokenTypes.mul: Symbols.mul,
       TokenTypes.div: Symbols.div,
@@ -302,6 +355,17 @@ class Token {
       Keywords.andKeyword: Symbols.and,
       Keywords.orKeyword: Symbols.or,
       Keywords.xorKeyword: Symbols.xor,
+      Keywords.ifKeyword: Symbols.ifKeyword,
+      Keywords.thenKeyword: Symbols.thenKeyword,
+      Keywords.elseKeyword: Symbols.elseKeyword,
+      Keywords.whileKeyword: Symbols.whileKeyword,
+      Keywords.doKeyword: Symbols.doKeyword,
+      Keywords.beginKeyword: Symbols.beginKeyword,
+      Keywords.endKeyword: Symbols.endKeyword,
+      Keywords.fnKeyword: Symbols.functionDefinition,
+      Keywords.forKeyword: Symbols.forKeyword,
+      Keywords.toKeyword: Symbols.toKeyword,
+      Keywords.stepKeyword: Symbols.stepKeyword,
       Keywords.nullKeyword: Symbols.nullLiteral,
     };
   }

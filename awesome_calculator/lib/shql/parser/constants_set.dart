@@ -63,15 +63,18 @@ class ConstantsTable<T> {
 class ConstantsSet {
   ConstantsSet()
     : _constants = ConstantsTable(),
-      _identifiers = ConstantsTable();
+      _identifiers = ConstantsTable(),
+      _variables = {};
 
   ConstantsSet._child(ConstantsSet parent)
     : _constants = ConstantsTable<dynamic>.copy(parent._constants),
-      _identifiers = parent._identifiers;
+      _identifiers = parent._identifiers,
+      _variables = Map.from(parent._variables);
 
   ConstantsSet._subModel(ConstantsSet parent)
     : _constants = ConstantsTable(parent: parent._constants.root()),
-      _identifiers = parent._identifiers;
+      _identifiers = parent._identifiers,
+      _variables = parent._variables;
 
   ConstantsTable<dynamic> get constants {
     return _constants;
@@ -129,7 +132,20 @@ class ConstantsSet {
     return buffer.toString();
   }
 
+  dynamic getVariable(int identifier) {
+    return _variables[identifier];
+  }
+
+  void setVariable(int identifier, dynamic value) {
+    _variables[identifier] = value;
+  }
+
+  bool hasVariable(int identifier) {
+    return _variables.containsKey(identifier);
+  }
+
   final ConstantsTable<dynamic> _constants;
   final ConstantsTable<String> _identifiers;
+  final Map<int, dynamic> _variables;
   final Map<int, ConstantsSet> _subModelScopes = {};
 }

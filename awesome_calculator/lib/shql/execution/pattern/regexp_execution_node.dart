@@ -1,0 +1,10 @@
+import 'package:awesome_calculator/shql/execution/null_aware_binary_node.dart';
+
+abstract class RegexpExecutionNode extends NullAwareBinaryNode {
+  RegexpExecutionNode(super.lhs, super.rhs);
+
+  bool matches(dynamic lhsResult, dynamic rhsResult) {
+    var regex = RegExp(rhsResult.toString(), caseSensitive: false);
+    return regex.hasMatch(lhsResult.toString());
+  }
+}

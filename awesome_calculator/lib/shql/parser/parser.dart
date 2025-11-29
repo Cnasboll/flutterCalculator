@@ -18,6 +18,96 @@ class Parser {
     LookaheadIterator<Token> tokenEnumerator,
     ConstantsSet constantsSet,
   ) {
+    if (tokenEnumerator.peek().keyword == Keywords.fnKeyword) {
+      // Function definition
+      tokenEnumerator.next();
+      return parseFunctionDefinition(tokenEnumerator, constantsSet);
+    }
+    return parseExpression(tokenEnumerator, constantsSet);
+  }
+
+  static ParseTree parseFunctionDefinition(
+    LookaheadIterator<Token> tokenEnumerator,
+    ConstantsSet constantsSet,
+  ) {
+    // Function definition
+    tokenEnumerator.next();
+    var functionName = parse(tokenEnumerator, constantsSet);
+    if (functionName.symbol != Symbols.identifier) {
+      throw ParseException(
+        'Expected function name identifier after fn keyword.',
+      );
+    }
+    // Parse argument list
+    var arguments = parseFunctionArgumentList(
+      tokenEnumerator,
+      constantsSet,
+      constantsSet.identifiers.constants[functionName.qualifier!],
+    );
+    // Now parse the function body
+    var body = parse(tokenEnumerator, constantsSet);
+    return ParseTree.withChildren(Symbols.functionDefinition, [
+      functionName,
+      arguments,
+      body,
+    ]);
+  }
+
+  static ParseTree parseFunctionArgumentList(
+    LookaheadIterator<Token> tokenEnumerator,
+    ConstantsSet constantsSet,
+    String functionName,
+  ) {
+    List<ParseTree> arguments = [];
+    var result = ParseTree(Symbols.functionArgumentList, arguments);
+
+    if (tokenEnumerator.hasNext &&
+        tokenEnumerator.peek().tokenType == TokenTypes.lPar) {
+      // Consume the parenthsis
+      tokenEnumerator.next();
+      // Proceed to next token
+      if (tokenEnumerator.peek().tokenType == TokenTypes.rPar) {
+        // Empty argument list
+        // Consume the parenthsis
+        tokenEnumerator.next();
+        return result;
+      }
+      for (;;) {
+        var argument = parse(tokenEnumerator, constantsSet);
+        if (argument.symbol != Symbols.identifier) {
+          throw ParseException(
+            "Expected identifier in argument list of function $functionName.",
+          );
+        }
+        arguments.add(argument);
+
+        if (!tokenEnumerator.hasNext) {
+          throw ParseException(
+            "End of stream when consuming arguments for function $functionName()",
+          );
+        }
+
+        tokenEnumerator.next();
+
+        if (tokenEnumerator.current.tokenType == TokenTypes.rPar) {
+          break;
+        }
+
+        if (tokenEnumerator.current.tokenType != TokenTypes.comma) {
+          var n = arguments.length;
+          throw ParseException(
+            "Expected comma or right parenthesis following $n:th argument for to function declaration $functionName()",
+          );
+        }
+      }
+    }
+    return result;
+  }
+
+  static ParseTree parseExpression(
+    LookaheadIterator<Token> tokenEnumerator,
+    ConstantsSet constantsSet,
+  ) {
     var operandStack = <ParseTree>[];
     var operatorStack = <Token>[];
 
@@ -32,10 +122,10 @@ class Parser {
       operandStack.add(parseOperand(tokenEnumerator, constantsSet));
 
       // If we find a left parenthesis here, consider this a multiplication!
-      if (tokenEnumerator.hasNext && tokenEnumerator.peek().tokenType == TokenTypes.lPar) {
+      if (tokenEnumerator.hasNext &&
+          tokenEnumerator.peek().tokenType == TokenTypes.lPar) {
         operatorStack.add(Token.parser(TokenTypes.mul, "*"));
-      }    
-      else if (tryConsumeOperator(tokenEnumerator)) {
+      } else if (tryConsumeOperator(tokenEnumerator)) {
         while (operatorStack.isNotEmpty &&
             !tokenEnumerator.current.takesPrecedence(operatorStack.last)) {
           popOperatorStack(tokenEnumerator, operandStack, operatorStack);
@@ -83,7 +173,6 @@ class Parser {
     ConstantsSet constantsSet, [
     bool allowSign = true,
   ]) {
-
     if (tokenEnumerator.current.symbol == Symbols.nullLiteral) {
       return ParseTree(Symbols.nullLiteral, []);
     }
@@ -126,12 +215,8 @@ class Parser {
       );
     }
 
-    
-    if (tokenEnumerator.current.tokenType == TokenTypes.lBrack) {      
-      return ParseTree(
-        Symbols.list,
-        parseList(tokenEnumerator, constantsSet),
-      );
+    if (tokenEnumerator.current.tokenType == TokenTypes.lBrack) {
+      return ParseTree(Symbols.list, parseList(tokenEnumerator, constantsSet));
     }
 
     String currentLexeme = tokenEnumerator.current.lexeme;
@@ -155,13 +240,20 @@ class Parser {
       case LiteralTypes.singleQuotedStringLiteral:
         return ParseTree.withQualifier(
           Symbols.stringLiteral,
-          constantsSet.constants.include(StringEscaper.unescape(tokenEnumerator.current.lexeme)),
+          constantsSet.constants.include(
+            StringEscaper.unescape(tokenEnumerator.current.lexeme),
+          ),
         );
       case LiteralTypes.doubleQuotedRawStringLiteral:
       case LiteralTypes.singleQuotedRawStringLiteral:
         return ParseTree.withQualifier(
           Symbols.stringLiteral,
-          constantsSet.constants.include(tokenEnumerator.current.lexeme.substring( 2, tokenEnumerator.current.lexeme.length - 1)),
+          constantsSet.constants.include(
+            tokenEnumerator.current.lexeme.substring(
+              2,
+              tokenEnumerator.current.lexeme.length - 1,
+            ),
+          ),
         );
       default:
     }
@@ -174,7 +266,7 @@ class Parser {
   static List<ParseTree> parseArgumentList(
     LookaheadIterator<Token> tokenEnumerator,
     ConstantsSet constantsSet,
-    String identifierName,
+    String functionName,
   ) {
     List<ParseTree> arguments = [];
 
@@ -194,7 +286,7 @@ class Parser {
 
         if (!tokenEnumerator.hasNext) {
           throw ParseException(
-            "End of stream when consuming arguments for call to function $identifierName()",
+            "End of stream when consuming arguments for call to function $functionName()",
           );
         }
 
@@ -207,7 +299,7 @@ class Parser {
         if (tokenEnumerator.current.tokenType != TokenTypes.comma) {
           var n = arguments.length;
           throw ParseException(
-            "Expected comma or right parenthesis following $n:th argument for call to function $identifierName()",
+            "Expected comma or right parenthesis following $n:th argument for call to function $functionName()",
           );
         }
       }

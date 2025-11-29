@@ -6,9 +6,10 @@ import 'steampunk_keyboard.dart';
 import 'cash_register_display.dart';
 import 'terminal_display.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
+import 'package:awesome_calculator/utils/sound_manager.dart';
 
 /// A retro-styled computer terminal with a steampunk mechanical keyboard.
-/// 
+///
 /// Features:
 /// - Green CRT-style terminal display with blinking cursor
 /// - Full ASCII keyboard with shift support and drum rotation animations
@@ -23,40 +24,42 @@ class AncientComputer extends StatefulWidget {
   State<AncientComputer> createState() => _AncientComputerState();
 }
 
-class _AncientComputerState extends State<AncientComputer> with SingleTickerProviderStateMixin {
+class _AncientComputerState extends State<AncientComputer>
+    with SingleTickerProviderStateMixin {
   // Constants
   static const String _promptSymbol = '> ';
   static const int _tabSpaces = 4;
   static const Duration _cursorBlinkDuration = Duration(milliseconds: 530);
   static const Duration _keyPressDuration = Duration(milliseconds: 150);
-  
+
   // Terminal state
   String _terminalText = _promptSymbol;
   int _cursorPosition = _promptSymbol.length;
-  int _currentPromptPosition = 0; // Position of the current prompt in _terminalText
+  int _currentPromptPosition =
+      0; // Position of the current prompt in _terminalText
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
   String _currentInput = '';
-  
+
   // Terminal I/O state
   bool _waitingForInput = false;
   String? _readlinePrompt;
   void Function(String)? _readlineCallback;
-  
+
   static const int maxWheels = 12;
   // Cash register display
-  String _displayValue = 'NULL'.padLeft(maxWheels, ' '); 
-  
+  String _displayValue = 'NULL'.padLeft(maxWheels, ' ');
+
   // UI state
   String? _pressedKey;
   bool _showCursor = true;
   late AnimationController _cursorController;
-  
+
   // Keyboard state
   bool _virtualShiftToggled = false;
   bool _physicalShiftPressed = false;
   bool get _shiftPressed => _virtualShiftToggled || _physicalShiftPressed;
-  
+
   final FocusNode _focusNode = FocusNode();
 
   // Define keyboard layout - calculator-optimized (all calc symbols unshifted, QWERTY preserved)
@@ -80,13 +83,21 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     'h': 'H', 'i': 'I', 'j': 'J', 'k': 'K', 'l': 'L', 'm': 'M', 'n': 'N',
     'o': 'O', 'p': 'P', 'q': 'Q', 'r': 'R', 's': 'S', 't': 'T', 'u': 'U',
     'v': 'V', 'w': 'W', 'x': 'X', 'y': 'Y', 'z': 'Z',
-    'ENTER': '↵',  // Soft return / line break
+    'ENTER': '↵', // Soft return / line break
     // Arrow keys don't shift
   };
 
   // Function names that insert with parentheses
   final Set<String> _functionNames = {
-    'SIN', 'COS', 'TAN', 'ASIN', 'ACOS', 'ATAN', 'SQRT', 'EXP', 'LOG'
+    'SIN',
+    'COS',
+    'TAN',
+    'ASIN',
+    'ACOS',
+    'ATAN',
+    'SQRT',
+    'EXP',
+    'LOG',
   };
 
   @override
@@ -96,17 +107,17 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
       vsync: this,
       duration: _cursorBlinkDuration,
     )..repeat(reverse: true);
-    
+
     _cursorController.addListener(() {
       setState(() {
         _showCursor = _cursorController.value > 0.5;
       });
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
-    
+
     // Initialize display to show NULL for empty input
     _evaluateCurrentInput();
   }
@@ -131,7 +142,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   /// Returns a Future that completes when user presses ENTER
   Future<String> readline([String? prompt]) {
     final completer = Completer<String>();
-    
+
     setState(() {
       _waitingForInput = true;
       _readlinePrompt = prompt;
@@ -141,7 +152,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
         _readlinePrompt = null;
         _readlineCallback = null;
       };
-      
+
       // Add prompt if provided, otherwise just position for input
       if (prompt != null && prompt.isNotEmpty) {
         _terminalText += '\n$prompt';
@@ -151,7 +162,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
       _currentPromptPosition = _terminalText.length;
       _cursorPosition = _terminalText.length;
     });
-    
+
     return completer.future;
   }
 
@@ -173,24 +184,26 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   /// Navigate command history (up/down arrows)
   void _navigateHistory(bool isUp) {
     if (_commandHistory.isEmpty) return;
-    
+
     // Save current input when first navigating history
     if (_historyIndex == -1) {
       _currentInput = _getCurrentLine();
     }
-    
+
     if (isUp) {
       // Move backward in history (older commands)
       if (_historyIndex < _commandHistory.length - 1) {
         _historyIndex++;
-        final historyCommand = _commandHistory[_commandHistory.length - 1 - _historyIndex];
+        final historyCommand =
+            _commandHistory[_commandHistory.length - 1 - _historyIndex];
         _replaceCurrentLine(historyCommand);
       }
     } else {
       // Move forward in history (newer commands)
       if (_historyIndex > 0) {
         _historyIndex--;
-        final historyCommand = _commandHistory[_commandHistory.length - 1 - _historyIndex];
+        final historyCommand =
+            _commandHistory[_commandHistory.length - 1 - _historyIndex];
         _replaceCurrentLine(historyCommand);
       } else if (_historyIndex == 0) {
         // Restore current input
@@ -206,24 +219,30 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
     if (result == null) {
       return ('NULL', padding);
     }
-    
+
     if (result is int) {
       return (result.toString(), '0');
-    } 
-    
+    }
+
     if (result is double) {
       if (result.isNaN) {
         return ('ERROR', padding);
-      } 
+      }
       if (result.isInfinite) {
         return (result.isNegative ? '-INFINITY' : 'INFINITY', padding);
       } // Format with up to 6 decimal places
-        return (result.toStringAsFixed(6).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), ''), '0');      
-    }    
-    
+      return (
+        result
+            .toStringAsFixed(6)
+            .replaceAll(RegExp(r'0+$'), '')
+            .replaceAll(RegExp(r'\.$'), ''),
+        '0',
+      );
+    }
+
     if (result is String) {
-      return (result, padding);    
-    } 
+      return (result, padding);
+    }
 
     return (result.toString(), padding);
   }
@@ -232,13 +251,14 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   void _evaluateCurrentInput() {
     final inputStart = _currentPromptPosition + _promptSymbol.length;
     final currentInput = _terminalText.substring(inputStart).trim();
-    
-    try {
-      final result = currentInput.isEmpty ? null : Engine.calculate(currentInput); 
-      
-      final (formatted, padding) = _formatResult(result);
-      _displayValue = formatted.padLeft(maxWheels, padding);      
 
+    try {
+      final result = currentInput.isEmpty
+          ? null
+          : Engine.calculate(currentInput);
+
+      final (formatted, padding) = _formatResult(result);
+      _displayValue = formatted.padLeft(maxWheels, padding);
     } catch (e) {
       // Keep previous valid result
       print(e);
@@ -248,37 +268,40 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   /// Handle up arrow: command history on last line, cursor movement otherwise
   void _handleArrowUp() {
     final isInInputSection = _cursorPosition >= _currentPromptPosition;
-    
+
     if (!isInInputSection) return;
-    
+
     // Don't navigate history if waiting for readline input
     if (_waitingForInput) {
       return; // Just stay in place, don't allow history navigation during readline
     }
-    
+
     // Check if we're on the first line of input
     final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
     final inputStart = _currentPromptPosition + promptLength;
     final firstNewlineInInput = _terminalText.indexOf('\n', inputStart);
-    final isOnFirstLine = firstNewlineInInput == -1 || _cursorPosition <= firstNewlineInInput;
-    
+    final isOnFirstLine =
+        firstNewlineInInput == -1 || _cursorPosition <= firstNewlineInInput;
+
     if (isOnFirstLine) {
       // On first line: navigate history
       _navigateHistory(true);
       _evaluateCurrentInput();
     } else {
       // Not on first line: move cursor up within current input
-      int currentLineStart = _terminalText.lastIndexOf('\n', _cursorPosition - 1) + 1;
-      int prevLineStart = _terminalText.lastIndexOf('\n', currentLineStart - 2) + 1;
-      
+      int currentLineStart =
+          _terminalText.lastIndexOf('\n', _cursorPosition - 1) + 1;
+      int prevLineStart =
+          _terminalText.lastIndexOf('\n', currentLineStart - 2) + 1;
+
       // Make sure we don't go before the prompt
       if (prevLineStart < inputStart) {
         prevLineStart = inputStart;
       }
-      
+
       int offsetInLine = _cursorPosition - currentLineStart;
       _cursorPosition = prevLineStart + offsetInLine;
-      
+
       int prevLineEnd = currentLineStart - 1;
       if (_cursorPosition > prevLineEnd) _cursorPosition = prevLineEnd;
     }
@@ -287,29 +310,30 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   /// Handle down arrow: command history on last line, cursor movement otherwise
   void _handleArrowDown() {
     final isInInputSection = _cursorPosition >= _currentPromptPosition;
-    
+
     if (!isInInputSection) return;
-    
+
     // Don't navigate history if waiting for readline input
     if (_waitingForInput) {
       return; // Just stay in place, don't allow history navigation during readline
     }
-    
+
     // Check if there's a next line in the current input
     final nextNewline = _terminalText.indexOf('\n', _cursorPosition);
     final isOnLastLine = nextNewline == -1;
-    
+
     if (isOnLastLine) {
       // On last line: navigate history
       _navigateHistory(false);
       _evaluateCurrentInput();
     } else {
       // Not on last line: move cursor down within current input
-      int currentLineStart = _terminalText.lastIndexOf('\n', _cursorPosition - 1) + 1;
+      int currentLineStart =
+          _terminalText.lastIndexOf('\n', _cursorPosition - 1) + 1;
       int nextLineStart = nextNewline + 1;
       int offsetInLine = _cursorPosition - currentLineStart;
       _cursorPosition = nextLineStart + offsetInLine;
-      
+
       int nextLineEnd = _terminalText.indexOf('\n', nextLineStart);
       if (nextLineEnd == -1) nextLineEnd = _terminalText.length;
       if (_cursorPosition > nextLineEnd) _cursorPosition = nextLineEnd;
@@ -317,9 +341,12 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
   }
 
   void _handleKeyPress(String key) {
+    // Play typewriter sound for key press
+    SoundManager().playSound('sounds/typewriter_key.wav');
+
     setState(() {
       _pressedKey = key;
-      
+
       // Handle arrow keys for cursor movement
       if (key == '←') {
         if (_cursorPosition > 0) {
@@ -344,29 +371,31 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
         _handleArrowDown();
         return;
       }
-      
+
       if (key == 'SHIFT') {
         if (!_physicalShiftPressed) {
           _virtualShiftToggled = !_virtualShiftToggled;
         }
       } else if (key == 'TAB') {
-        _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                       ' ' * _tabSpaces + 
-                       _terminalText.substring(_cursorPosition);
+        _terminalText =
+            _terminalText.substring(0, _cursorPosition) +
+            ' ' * _tabSpaces +
+            _terminalText.substring(_cursorPosition);
         _cursorPosition += _tabSpaces;
       } else if (key == 'ENTER') {
         if (_shiftPressed) {
           // SHIFT-ENTER: Soft return (line break without prompt)
-          _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                         '\n' + 
-                         _terminalText.substring(_cursorPosition);
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition) +
+              '\n' +
+              _terminalText.substring(_cursorPosition);
           _cursorPosition += 1;
         } else {
           // Regular ENTER: Handle based on whether we're waiting for readline or executing command
           final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
           final inputStart = _currentPromptPosition + promptLength;
           final currentInput = _terminalText.substring(inputStart).trim();
-          
+
           if (_waitingForInput && _readlineCallback != null) {
             // Readline mode: complete the readline future with the input
             _readlineCallback!(currentInput);
@@ -388,10 +417,11 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
                 terminalPrint(e.toString());
               }
             }
-            
+
             // Move cursor to end and add new prompt
             _terminalText += '\n$_promptSymbol';
-            _currentPromptPosition = _terminalText.length - _promptSymbol.length;
+            _currentPromptPosition =
+                _terminalText.length - _promptSymbol.length;
             _cursorPosition = _terminalText.length;
           }
         }
@@ -400,10 +430,11 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
           // Don't allow deleting the prompt or before it
           final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
           final promptEnd = _currentPromptPosition + promptLength;
-          
+
           if (_cursorPosition > promptEnd) {
-            _terminalText = _terminalText.substring(0, _cursorPosition - 1) + 
-                           _terminalText.substring(_cursorPosition);
+            _terminalText =
+                _terminalText.substring(0, _cursorPosition - 1) +
+                _terminalText.substring(_cursorPosition);
             _cursorPosition--;
             _evaluateCurrentInput();
           }
@@ -411,43 +442,51 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
       } else if (key == 'DEL') {
         if (_cursorPosition < _terminalText.length) {
           // Delete character at cursor position (forward delete)
-          _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                         _terminalText.substring(_cursorPosition + 1);
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition) +
+              _terminalText.substring(_cursorPosition + 1);
           _evaluateCurrentInput();
         }
       } else if (key == 'SPACE') {
-        _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                       ' ' + 
-                       _terminalText.substring(_cursorPosition);
+        _terminalText =
+            _terminalText.substring(0, _cursorPosition) +
+            ' ' +
+            _terminalText.substring(_cursorPosition);
         _cursorPosition++;
       } else {
         // Check if this is a function name - insert with parentheses
         if (_functionNames.contains(key)) {
-          _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                         key + '()' + 
-                         _terminalText.substring(_cursorPosition);
-          _cursorPosition += key.length + 1; // Position cursor inside parentheses
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition) +
+              key +
+              '()' +
+              _terminalText.substring(_cursorPosition);
+          _cursorPosition +=
+              key.length + 1; // Position cursor inside parentheses
           _evaluateCurrentInput();
           return;
         }
-        
+
         // Apply shift mapping if shift is pressed
         String charToInsert = key;
         if (_shiftPressed && _shiftMap.containsKey(key)) {
           charToInsert = _shiftMap[key]!;
         } else {
           // Make letters lowercase if shift not pressed
-          if (key.length == 1 && key.codeUnitAt(0) >= 65 && key.codeUnitAt(0) <= 90) {
+          if (key.length == 1 &&
+              key.codeUnitAt(0) >= 65 &&
+              key.codeUnitAt(0) <= 90) {
             charToInsert = key.toLowerCase();
           }
         }
-        
-        _terminalText = _terminalText.substring(0, _cursorPosition) + 
-                       charToInsert + 
-                       _terminalText.substring(_cursorPosition);
+
+        _terminalText =
+            _terminalText.substring(0, _cursorPosition) +
+            charToInsert +
+            _terminalText.substring(_cursorPosition);
         _cursorPosition++;
       }
-      
+
       // Evaluate expression after every keystroke
       _evaluateCurrentInput();
     });
@@ -464,8 +503,11 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
+      // Play typewriter sound for physical keyboard
+      SoundManager().playSound('sounds/typewriter_key.wav');
+
       String? key;
-      
+
       // Handle arrow keys for cursor movement
       if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
         setState(() {
@@ -497,7 +539,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
         });
         return KeyEventResult.handled;
       }
-      
+
       // Map physical keyboard keys to our virtual keyboard
       if (event.logicalKey == LogicalKeyboardKey.tab) {
         key = 'TAB';
@@ -517,22 +559,27 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
           if (code >= 32 && code <= 126) {
             // The physical keyboard sends the actual character already shifted
             // So we need to map back to the base key
-            if (code >= 97 && code <= 122) { // a-z (lowercase)
+            if (code >= 97 && code <= 122) {
+              // a-z (lowercase)
               key = label;
-            } else if (code >= 65 && code <= 90) { // A-Z (uppercase from shift)
+            } else if (code >= 65 && code <= 90) {
+              // A-Z (uppercase from shift)
               key = label.toLowerCase(); // Map back to base key
             } else {
               // For symbols, the physical keyboard sends the shifted version
               // Find which base key produces this character
               final baseKey = _shiftMap.entries
-                  .firstWhere((entry) => entry.value == label, orElse: () => MapEntry(label, label))
+                  .firstWhere(
+                    (entry) => entry.value == label,
+                    orElse: () => MapEntry(label, label),
+                  )
                   .key;
               key = baseKey;
             }
           }
         }
       }
-      
+
       if (key != null) {
         _handleKeyPress(key);
         return KeyEventResult.handled;
@@ -549,7 +596,7 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
         focusNode: _focusNode,
         onKeyEvent: (KeyEvent event) {
           if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.shiftLeft || 
+            if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
               _physicalShiftPressed = true;
               _virtualShiftToggled = false;
@@ -557,14 +604,14 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
               return;
             }
           } else if (event is KeyUpEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.shiftLeft || 
+            if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
               _physicalShiftPressed = false;
               setState(() {});
               return;
             }
           }
-          
+
           if (event is KeyDownEvent) {
             _handleKeyEvent(_focusNode, event);
           }
@@ -591,18 +638,18 @@ class _AncientComputerState extends State<AncientComputer> with SingleTickerProv
                       });
                     },
                   ),
-              
-              // Cash Register Display
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: CashRegisterDisplay(
-                    value: _displayValue,
-                    maxWheels: maxWheels,
+
+                  // Cash Register Display
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: CashRegisterDisplay(
+                        value: _displayValue,
+                        maxWheels: maxWheels,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              
+
                   // Keyboard
                   SteampunkKeyboard(
                     keyboardLayout: _keyboardLayout,

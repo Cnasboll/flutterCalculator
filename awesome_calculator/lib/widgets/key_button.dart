@@ -1,7 +1,9 @@
+import 'package:awesome_calculator/widgets/lightbulb.dart';
+import 'package:awesome_calculator/widgets/rivet.dart';
 import 'package:flutter/material.dart';
 
 /// A steampunk-styled mechanical key button with animated drum rotation.
-/// 
+///
 /// Features:
 /// - Bronze/copper gradient with rivets and lightbulb indicators
 /// - Rotating drum animation showing both shifted and unshifted characters
@@ -29,7 +31,8 @@ class KeyButton extends StatefulWidget {
   State<KeyButton> createState() => _KeyButtonState();
 }
 
-class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMixin {
+class _KeyButtonState extends State<KeyButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _rotationController;
   late Animation<double> _rotationAnimation;
   bool _lastShiftState = false;
@@ -46,7 +49,7 @@ class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMix
       CurvedAnimation(parent: _rotationController, curve: Curves.easeInOut),
     );
     _lastShiftState = false;
-    
+
     // Set initial state after first frame if shift is already pressed
     if (widget.isShifted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,18 +78,31 @@ class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     // Always use widget.baseKey which contains the original unshifted key
     final baseKey = widget.baseKey!;
-    final isFunctionKey = baseKey == 'SIN' || baseKey == 'COS' || baseKey == 'TAN' || 
-                          baseKey == 'ASIN' || baseKey == 'ACOS' || baseKey == 'ATAN' ||
-                          baseKey == 'SQRT' || baseKey == 'EXP' || baseKey == 'LOG';
-    final isWide = baseKey == 'SPACE' || baseKey == 'BACK' || baseKey == 'DEL' || baseKey == 'SHIFT' || baseKey == 'TAB';
+    final isFunctionKey =
+        baseKey == 'SIN' ||
+        baseKey == 'COS' ||
+        baseKey == 'TAN' ||
+        baseKey == 'ASIN' ||
+        baseKey == 'ACOS' ||
+        baseKey == 'ATAN' ||
+        baseKey == 'SQRT' ||
+        baseKey == 'EXP' ||
+        baseKey == 'LOG';
+    final isWide =
+        baseKey == 'SPACE' ||
+        baseKey == 'BACK' ||
+        baseKey == 'DEL' ||
+        baseKey == 'SHIFT' ||
+        baseKey == 'TAB';
     final isEnter = baseKey == 'ENTER';
-    final width = isFunctionKey ? 45.0 : (isWide ? 60.0 : (isEnter ? 50.0 : 24.0));
-    
+    final width = isFunctionKey
+        ? 45.0
+        : (isWide ? 60.0 : (isEnter ? 50.0 : 24.0));
+
     final unshifted = baseKey;
     final shifted = widget.shiftMap[baseKey] ?? baseKey;
     final showBoth = unshifted != shifted;
@@ -129,129 +145,15 @@ class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMix
           children: [
             // Lightbulb at top center
             Positioned(
-              top: 1,
+              top: 2,
               left: width / 2 - 4,
-              child: Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.isPressed 
-                      ? const Color(0xFFFFF8DC) // Bright cornsilk when lit
-                      : const Color(0xFF4A3728), // Dark when off
-                  border: Border.all(
-                    color: const Color(0xFF2C1810),
-                    width: 1,
-                  ),
-                  boxShadow: widget.isPressed
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFFFF99).withValues(alpha: 0.9),
-                            blurRadius: 12,
-                            spreadRadius: 3,
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFFFFDD55).withValues(alpha: 0.6),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 1,
-                          ),
-                        ],
-                ),
-                child: widget.isPressed
-                    ? Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              const Color(0xFFFFFFFF),
-                              const Color(0xFFFFF8DC),
-                              const Color(0xFFFFD700),
-                            ],
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
+              child: Lightbulb(isLit: widget.isPressed),
             ),
             // Rivets in corners
-            Positioned(
-              top: 2,
-              left: 2,
-              child: Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A3728),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              top: 2,
-              right: 2,
-              child: Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A3728),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 2,
-              left: 2,
-              child: Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A3728),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A3728),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            Positioned(top: 2, left: 2, child: Rivet()),
+            Positioned(top: 2, right: 2, child: Rivet()),
+            Positioned(bottom: 2, left: 2, child: Rivet()),
+            Positioned(bottom: 2, right: 2, child: Rivet()),
             // Text with drum rotation effect
             Positioned(
               left: 0,
@@ -265,67 +167,72 @@ class _KeyButtonState extends State<KeyButton> with SingleTickerProviderStateMix
                         return OverflowBox(
                           maxHeight: 36,
                           child: Transform.translate(
-                              offset: Offset(0, -18 + _rotationAnimation.value * 18),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Shifted character (moves into view when shift pressed)
-                                  SizedBox(
-                                    height: 18,
-                                    child: Align(
-                                      alignment: Alignment.bottomCenter,
-                                      child: Text(
-                                        shifted,
-                                          style: const TextStyle(
-                                            color: Color(0xFFFFE4B5),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'monospace',
-                                            height: 1.0,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black54,
-                                                offset: Offset(1, 1),
-                                                blurRadius: 2,
-                                              ),
-                                            ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Unshifted character (visible by default)
-                                  SizedBox(
-                                    height: 18,
-                                    child: Align(
-                                      alignment: Alignment.bottomCenter,
-                                      child: Text(
-                                        unshifted,
-                                          style: const TextStyle(
-                                            color: Color(0xFFFFE4B5),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'monospace',
-                                            height: 1.0,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black54,
-                                                offset: Offset(1, 1),
-                                                blurRadius: 2,
-                                              ),
-                                            ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            offset: Offset(
+                              0,
+                              -18 + _rotationAnimation.value * 18,
                             ),
-                          );
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Shifted character (moves into view when shift pressed)
+                                SizedBox(
+                                  height: 18,
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Text(
+                                      shifted,
+                                      style: const TextStyle(
+                                        color: Color(0xFFFFE4B5),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'monospace',
+                                        height: 1.0,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            offset: Offset(1, 1),
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Unshifted character (visible by default)
+                                SizedBox(
+                                  height: 18,
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Text(
+                                      unshifted,
+                                      style: const TextStyle(
+                                        color: Color(0xFFFFE4B5),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'monospace',
+                                        height: 1.0,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            offset: Offset(1, 1),
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     )
                   : Center(
                       child: Text(
-                        widget.isShifted && shifted != unshifted ? shifted : baseKey,
+                        widget.isShifted && shifted != unshifted
+                            ? shifted
+                            : baseKey,
                         style: TextStyle(
                           color: const Color(0xFFFFE4B5),
                           fontSize: isWide ? 8 : 11,

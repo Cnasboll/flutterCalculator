@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'cash_register_wheel.dart';
 
 /// Cash register display showing a result as rotating wheels.
-/// 
+///
 /// Features:
 /// - Displays strings, numbers, booleans across multiple wheels
 /// - Auto-pads with spaces for alignment
@@ -23,7 +23,7 @@ class CashRegisterDisplay extends StatelessWidget {
     final displayValue = value.length > maxWheels
         ? value.substring(0, maxWheels)
         : value.padRight(maxWheels, ' ');
-    
+
     // displayValue prepared for wheels
 
     return Container(
@@ -39,10 +39,7 @@ class CashRegisterDisplay extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF2C1810),
-          width: 2,
-        ),
+        border: Border.all(color: const Color(0xFF2C1810), width: 2),
         boxShadow: [
           const BoxShadow(
             color: Colors.black87,
