@@ -2,61 +2,50 @@ import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/nullary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/unary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_child_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class IdentifierExecutionNode extends LazyChildExecutionNode {
   IdentifierExecutionNode(super.node);
 
   @override
-  ExecutionNode? createChildNode(ConstantsSet constantsSet) {
-    var identifier = constantsSet.identifiers.constants[node.qualifier!];
-    
-    // Check variables first (mutable)
-    if (constantsSet.hasVariable(node.qualifier!)) {
-      var variable = constantsSet.getVariable(node.qualifier!);
+  ExecutionNode? createChildNode(Runtime runtime) {
+    var identifier = runtime.identifiers.constants[node.qualifier!];
+
+    // Try to resolve identifier (variables shadow constants, walks parent chain)
+    var (value, found) = runtime.resolveIdentifier(node.qualifier!);
+    if (found) {
       if (node.children.isNotEmpty) {
         var argumentCount = node.children.length;
         if (argumentCount == 1) {
           var lhs = Engine.createExecutionNode(node.children[0]);
-          return MultiplicationExecutionNode(
-            AprioriExecutionNode(variable),
-            lhs!,
-          );
+          return MultiplicationExecutionNode(AprioriExecutionNode(value), lhs!);
         }
         error =
-            "Attempt to use variable $identifier as a function: ($argumentCount) argument(s) given.";
+            "Attempt to use value $identifier as a function: ($argumentCount) argument(s) given.";
         return null;
       }
-      result = variable;
-      return null;
-    }
-    
-    // Then check constants (immutable)
-    var (constant, index) = constantsSet.constants.getByIdentifier(
-      node.qualifier!,
-    );
-    if (constant != null || index != null) {
-      if (node.children.isNotEmpty) {
-        var argumentCount = node.children.length;
-        if (argumentCount == 1) {
-          var lhs = Engine.createExecutionNode(node.children[0]);
-          return MultiplicationExecutionNode(
-            AprioriExecutionNode(constant),
-            lhs!,
-          );
-        }
-        error =
-            "Attempt to use constant $identifier as a function: ($argumentCount) argument(s) given.";
-        return null;
-      }
-      result = constant;
+      result = value;
       return null;
     }
 
-    var unaryFunction = Engine.unaryFunctions[identifier];
+    var nullaryFunction = runtime.getNullaryFunction(identifier);
+    if (nullaryFunction != null) {
+      if (node.children.isNotEmpty) {
+        var argumentCount = node.children.length;
+        error =
+            "Function $identifier() takes 0 arguments, $argumentCount given.";
+        return null;
+      }
+      return NullaryLambdaExecutionNode(
+        nullaryFunction,
+      );
+    }
+
+    var unaryFunction = runtime.getUnaryFunction(identifier);
     if (unaryFunction != null) {
       if (node.children.length != 1) {
         var argumentCount = node.children.length;
@@ -70,7 +59,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       );
     }
 
-    var binaryFunction = Engine.binaryFunctions[identifier];
+    var binaryFunction = runtime.getBinaryFunction(identifier);
     if (binaryFunction != null) {
       if (node.children.length != 2) {
         var argumentCount = node.children.length;

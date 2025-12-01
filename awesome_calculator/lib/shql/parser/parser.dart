@@ -225,14 +225,14 @@ class Parser {
       case LiteralTypes.integerLiteral:
         return ParseTree.withQualifier(
           Symbols.integerLiteral,
-          constantsSet.constants.include(
+          constantsSet.includeConstant(
             int.parse(tokenEnumerator.current.lexeme),
           ),
         );
       case LiteralTypes.floatLiteral:
         return ParseTree.withQualifier(
           Symbols.floatLiteral,
-          constantsSet.constants.include(
+          constantsSet.includeConstant(
             double.parse(tokenEnumerator.current.lexeme),
           ),
         );
@@ -240,7 +240,7 @@ class Parser {
       case LiteralTypes.singleQuotedStringLiteral:
         return ParseTree.withQualifier(
           Symbols.stringLiteral,
-          constantsSet.constants.include(
+          constantsSet.includeConstant(
             StringEscaper.unescape(tokenEnumerator.current.lexeme),
           ),
         );
@@ -248,7 +248,7 @@ class Parser {
       case LiteralTypes.singleQuotedRawStringLiteral:
         return ParseTree.withQualifier(
           Symbols.stringLiteral,
-          constantsSet.constants.include(
+          constantsSet.includeConstant(
             tokenEnumerator.current.lexeme.substring(
               2,
               tokenEnumerator.current.lexeme.length - 1,

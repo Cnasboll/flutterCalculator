@@ -1,17 +1,17 @@
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class BooleanExecutionNode extends ExecutionNode {
   BooleanExecutionNode(this.lhs, this.rhs);
 
   @override
-  bool doTick(ConstantsSet constantsSet) {
-    if (lhs.tick(constantsSet)) {
+  bool doTick(Runtime runtime) {
+    if (lhs.tick(runtime)) {
       var lhsResult = lhs.result is bool ? lhs.result : lhs.result != 0;
       if (shortCircuit(lhsResult)) {
         return true;
       }
-      if (!rhs.tick(constantsSet)) {
+      if (!rhs.tick(runtime)) {
         return false;
       }
 

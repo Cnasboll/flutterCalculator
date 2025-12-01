@@ -1,21 +1,21 @@
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class ParentExecutionNode extends ExecutionNode {
   ParentExecutionNode(this.children);
 
   @override
-  bool doTick(ConstantsSet constantsSet) {
+  bool doTick(Runtime runtime) {
     for (int i = 0; i < children.length; i++) {
       var child = children[i];
-      if (!child.tick(constantsSet)) {
+      if (!child.tick(runtime)) {
         return false;
       }
       if (!onChildComplete(i, child)) {
         return false;
       }
     }
-    onChildrenComplete(constantsSet);
+    onChildrenComplete(runtime);
     return true;
   }
 
@@ -23,7 +23,7 @@ abstract class ParentExecutionNode extends ExecutionNode {
     return true;
   }
 
-  void onChildrenComplete(ConstantsSet constantsSet) {}
+  void onChildrenComplete(Runtime runtime) {}
 
   List<ExecutionNode> children;
 }

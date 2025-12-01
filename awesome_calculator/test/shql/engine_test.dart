@@ -13,9 +13,9 @@ void main() {
     var p = Parser.parse(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children[0].symbol, Symbols.integerLiteral);
-    expect(constantsSet.constants.constants[p.children[0].qualifier!], 10);
+    expect(constantsSet.getConstantByIndex(p.children[0].qualifier!), 10);
     expect(p.children[1].symbol, Symbols.integerLiteral);
-    expect(constantsSet.constants.constants[p.children[0].qualifier!], 10);
+    expect(constantsSet.getConstantByIndex(p.children[1].qualifier!), 2);
   });
 
   test('Calculate addition', () {

@@ -1,15 +1,15 @@
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class ExecutionNode {
-  bool tick(ConstantsSet constantsSet) {
+  bool tick(Runtime runtime) {
     if (completed) {
       return true;
     }
-    completed = doTick(constantsSet);
+    completed = doTick(runtime);
     return completed;
   }
 
-  bool doTick(ConstantsSet constantsSet);
+  bool doTick(Runtime runtime);
 
   bool completed = false;
   String? error;

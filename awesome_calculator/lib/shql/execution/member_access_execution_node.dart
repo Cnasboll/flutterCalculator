@@ -1,6 +1,6 @@
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
@@ -8,7 +8,7 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
   MemberAccessExecutionNode(super.node);
 
   @override
-  bool doTick(ConstantsSet constantsSet) {
+  bool doTick(Runtime runtime) {
     if (node.children.length != 2) {
       error = 'Member access must have exactly 2 children';
       return true;
@@ -23,15 +23,15 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
       return true;
     }
 
-    ConstantsSet targetScope;
+    Runtime targetScope;
 
     if (leftChild.symbol == Symbols.identifier) {
       // Simple case: a.b
-      targetScope = constantsSet.getSubModelScope(leftChild.qualifier!);
+      targetScope = runtime.getSubModelScope(leftChild.qualifier!);
     } else if (leftChild.symbol == Symbols.memberAccess) {
       // Recursive case: a.b.c (where a.b is another memberAccess)
       // We need to resolve the left side to get the appropriate scope
-      targetScope = _resolveMemberAccessToScope(leftChild, constantsSet);
+      targetScope = _resolveMemberAccessToScope(leftChild, runtime);
     } else {
       error =
           'Left side of member access must be an identifier or another member access';
@@ -57,9 +57,9 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
     return true;
   }
 
-  static ConstantsSet _resolveMemberAccessToScope(
+  static Runtime _resolveMemberAccessToScope(
     ParseTree memberAccessTree,
-    ConstantsSet constantsSet,
+    Runtime runtime,
   ) {
     if (memberAccessTree.symbol != Symbols.memberAccess) {
       throw RuntimeException('Expected member access parse tree');
@@ -74,14 +74,14 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
       );
     }
 
-    ConstantsSet intermediateScope;
+    Runtime intermediateScope;
 
     if (leftChild.symbol == Symbols.identifier) {
       // Base case: a.b - get sub-scope of a
-      intermediateScope = constantsSet.getSubModelScope(leftChild.qualifier!);
+      intermediateScope = runtime.getSubModelScope(leftChild.qualifier!);
     } else if (leftChild.symbol == Symbols.memberAccess) {
       // Recursive case: resolve a.b first, then get its sub-scope
-      intermediateScope = _resolveMemberAccessToScope(leftChild, constantsSet);
+      intermediateScope = _resolveMemberAccessToScope(leftChild, runtime);
     } else {
       throw RuntimeException(
         'Left side of member access must be an identifier or another member access',

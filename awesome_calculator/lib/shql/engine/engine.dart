@@ -16,7 +16,7 @@ import 'package:awesome_calculator/shql/execution/boolean/xor_execution_node.dar
 import 'package:awesome_calculator/shql/execution/constant_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/identifier_node.dart';
+import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/function_definition_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
@@ -29,6 +29,7 @@ import 'package:awesome_calculator/shql/execution/relational/greater_than_or_equ
 import 'package:awesome_calculator/shql/execution/relational/less_than_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
@@ -46,9 +47,14 @@ class RuntimeException implements Exception {
 }
 
 class Engine {
-  static dynamic calculate(String expression, {ConstantsSet? constantsSet}) {
+  static dynamic execute(
+    String expression, {
+    Runtime? runtime,
+    ConstantsSet? constantsSet,
+  }) {
     var v = Tokenizer.tokenize(expression).toList();
     constantsSet ??= prepareConstantsSet();
+    runtime ??= prepareRuntime(constantsSet);
 
     var tokenEnumerator = v.lookahead();
 
@@ -73,57 +79,131 @@ class Engine {
       case 0:
         return null;
       case 1:
-        return evaluate(p.first, constantsSet);
+        return evaluate(p.first, runtime);
       default:
         dynamic lastResult;
         for (var tree in p) {
-          lastResult = evaluate(tree, constantsSet);
+          lastResult = evaluate(tree, runtime);
         }
         return lastResult;
     }
   }
 
+  static dynamic calculate(
+    String expression, {
+    Runtime? runtime,
+    ConstantsSet? constantsSet,
+  }) {
+    var v = Tokenizer.tokenize(expression).toList();
+    constantsSet ??= prepareConstantsSet();
+    runtime ??= prepareRuntime(constantsSet);
+
+    var tokenEnumerator = v.lookahead();
+
+    List<ParseTree> p = [];
+    while (tokenEnumerator.hasNext) {
+      if (p.isNotEmpty) {
+        if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
+          return null;
+        }
+        // Consume the semicolon
+        tokenEnumerator.next();
+      }
+
+      if (!tokenEnumerator.hasNext) {
+        break;
+      }
+      p.add(Parser.parse(tokenEnumerator, constantsSet));
+    }
+
+    (dynamic, bool) result = (null, false);
+
+    switch (p.length) {
+      case 0:
+        break;
+      case 1:
+        result = preview(p.first, runtime);
+      default:
+        for (var tree in p) {
+          result = preview(tree, runtime);
+        }
+    }
+
+    if (result.$2 == false) {
+      return null;
+    }
+    return result.$1;
+  }
+
   static ConstantsSet prepareConstantsSet() {
     var constantsSet = ConstantsSet();
-
     // Register mathematical constants
     for (var entry in _intConstants.entries) {
-      constantsSet.constants.register(
+      constantsSet.registerConstant(
         entry.value,
-        constantsSet.identifiers.include(entry.key),
+        constantsSet.includeIdentifier(entry.key),
       );
     }
-
     for (var entry in _doubleConstants.entries) {
-      constantsSet.constants.register(
+      constantsSet.registerConstant(
         entry.value,
-        constantsSet.identifiers.include(entry.key),
+        constantsSet.includeIdentifier(entry.key),
       );
     }
-
     // Register mathematical functions
     for (var entry in unaryFunctions.entries) {
-      constantsSet.identifiers.include(entry.key);
+      constantsSet.includeIdentifier(entry.key);
     }
     for (var entry in binaryFunctions.entries) {
-      constantsSet.identifiers.include(entry.key);
+      constantsSet.includeIdentifier(entry.key);
     }
     return constantsSet;
   }
 
-  static dynamic evaluate(ParseTree parseTree, ConstantsSet constantsSet) {
+  static Runtime prepareRuntime(ConstantsSet? constantsSet) {
+    var runtime = constantsSet != null
+        ? Runtime(
+            constantsSet: constantsSet,
+            unaryFunctions: unaryFunctions,
+            binaryFunctions: binaryFunctions,
+          )
+        : Runtime(
+            unaryFunctions: unaryFunctions,
+            binaryFunctions: binaryFunctions,
+          );
+    return runtime;
+  }
+
+  static dynamic evaluate(ParseTree parseTree, Runtime runtime) {
     var executionNode = createExecutionNode(parseTree);
     if (executionNode == null) {
       throw RuntimeException('Failed to create execution node.');
     }
 
-    while (!executionNode.tick(constantsSet)) {}
+    while (!executionNode.tick(runtime)) {}
 
     if (executionNode.error != null) {
       throw RuntimeException(executionNode.error!);
     }
 
     return executionNode.result;
+  }
+
+  static (dynamic, bool) preview(ParseTree parseTree, Runtime runtime) {
+    var executionNode = createExecutionNode(parseTree);
+    if (executionNode == null) {
+      throw RuntimeException('Failed to create execution node.');
+    }
+
+    if (!executionNode.tick(runtime)) {
+      return (null, false);
+    }
+
+    if (executionNode.error != null) {
+      throw RuntimeException(executionNode.error!);
+    }
+
+    return (executionNode.result, true);
   }
 
   static ExecutionNode? createExecutionNode(ParseTree parseTree) {
@@ -153,6 +233,10 @@ class Engine {
       return FunctionDefinitionExecutionNode(parseTree);
     }
 
+    if (parseTree.symbol == Symbols.assignment) {
+      return AssignmentExecutionNode(parseTree);
+    }
+
     return createBinaryOperatorExecutionNode(parseTree);
   }
 
@@ -160,8 +244,6 @@ class Engine {
     var lhs = createExecutionNode(parseTree.children[0]);
     var rhs = createExecutionNode(parseTree.children[1]);
     switch (parseTree.symbol) {
-      case Symbols.assignment:
-        return AssignmentExecutionNode(lhs!, rhs!);
       case Symbols.inOp:
         return InExecutionNode(lhs!, rhs!);
       case Symbols.pow:

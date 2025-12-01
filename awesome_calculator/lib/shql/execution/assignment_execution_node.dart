@@ -1,28 +1,38 @@
-import 'package:awesome_calculator/shql/execution/binary_execution_node.dart';
+import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/identifier_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
-class AssignmentExecutionNode extends BinaryExecutionNode {
-  AssignmentExecutionNode(super.lhs, super.rhs);
+class AssignmentExecutionNode extends LazyExecutionNode {
+  AssignmentExecutionNode(super.node);
 
   @override
-  bool onChildComplete(int index, ExecutionNode child) {
-    if (index == 0) {
-      // Left-hand side must be an identifier.
-      if (child is! IdentifierExecutionNode) {
-        error = "Left-hand side of assignment must be an identifier.";
-        return false;
-      }
+  bool doTick(Runtime runtime) {
+    // Verify that node has exactly two children
+    if (node.children.length != 2) {
+      error =
+          "Assignment operator requires exactly two operands, ${node.children.length} given.";
+      return true;
     }
+
+    // Verify that first child is an identifier
+    if (node.children[0].symbol != Symbols.identifier) {
+      error = "Left-hand side of assignment must be an identifier.";
+      return true;
+    }
+
+    _rhs ??= Engine.createExecutionNode(node.children[1])!;
+
+    if (!_rhs!.tick(runtime)) {
+      return false;
+    }
+
+    var identifier = node.children[0].qualifier!;
+    runtime.setVariable(identifier, _rhs!.result);
+    result = _rhs!.result;
     return true;
   }
 
-  @override
-  void onChildrenComplete(ConstantsSet constantsSet) {
-    var identifierNode = lhs as IdentifierExecutionNode;
-    var identifier = identifierNode.node.qualifier!;
-    constantsSet.setVariable(identifier, rhs.result);
-    result = rhs.result;
-  }
+  ExecutionNode? _rhs;
 }

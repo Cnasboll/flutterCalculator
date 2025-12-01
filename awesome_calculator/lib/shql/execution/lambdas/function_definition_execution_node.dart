@@ -5,17 +5,15 @@ import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_executio
 import 'package:awesome_calculator/shql/execution/lambdas/unary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_child_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class FunctionDefinitionExecutionNode extends LazyChildExecutionNode {
   FunctionDefinitionExecutionNode(super.node);
 
   @override
-  ExecutionNode? createChildNode(ConstantsSet constantsSet) {
-    var identifier = constantsSet.identifiers.constants[node.qualifier!];
-    var (constant, index) = constantsSet.constants.getByIdentifier(
-      node.qualifier!,
-    );
+  ExecutionNode? createChildNode(Runtime runtime) {
+    var identifier = runtime.identifiers.getByIndex(node.qualifier!)!;
+    var (constant, index) = runtime.constants.getByIdentifier(node.qualifier!);
     if (constant != null || index != null) {
       if (node.children.isNotEmpty) {
         var argumentCount = node.children.length;
@@ -34,7 +32,7 @@ class FunctionDefinitionExecutionNode extends LazyChildExecutionNode {
       return null;
     }
 
-    var unaryFunction = Engine.unaryFunctions[identifier];
+    var unaryFunction = runtime.getUnaryFunction(identifier);
     if (unaryFunction != null) {
       if (node.children.length != 1) {
         var argumentCount = node.children.length;
@@ -48,7 +46,7 @@ class FunctionDefinitionExecutionNode extends LazyChildExecutionNode {
       );
     }
 
-    var binaryFunction = Engine.binaryFunctions[identifier];
+    var binaryFunction = runtime.getBinaryFunction(identifier);
     if (binaryFunction != null) {
       if (node.children.length != 2) {
         var argumentCount = node.children.length;

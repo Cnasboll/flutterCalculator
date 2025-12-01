@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/widgets/post_it_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,9 @@ import 'cash_register_display.dart';
 import 'terminal_display.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/utils/sound_manager.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 /// A retro-styled computer terminal with a steampunk mechanical keyboard.
 ///
@@ -26,6 +31,77 @@ class AncientComputer extends StatefulWidget {
 
 class _AncientComputerState extends State<AncientComputer>
     with SingleTickerProviderStateMixin {
+  Future<void> _copyAllShqlAssetsToExternalStorage() async {
+    try {
+      // List all .shql files in assets manually (since Flutter can't list assets at runtime)
+      final assetFiles = [
+        'hello_world.shql',
+        // Add more .shql files here as you add them to assets
+      ];
+      Directory extDir = Platform.isAndroid
+          ? Directory('/storage/emulated/0/Download')
+          : await getApplicationDocumentsDirectory();
+      for (final filename in assetFiles) {
+        final data = await rootBundle.loadString('assets/shql/$filename');
+        final file = File('${extDir.path}/$filename');
+        await file.writeAsString(data);
+      }
+    } catch (e) {
+      // Optionally print or handle error
+    }
+  }
+
+  Future<void> _handleLoadPressed() async {
+    try {
+      Directory extDir = Platform.isAndroid
+          ? Directory('/storage/emulated/0/Download')
+          : await getApplicationDocumentsDirectory();
+      final result = await FilePicker.platform.pickFiles(
+        initialDirectory: extDir.path,
+        type: FileType.custom,
+        allowedExtensions: ['shql'],
+      );
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final contents = await file.readAsString();
+        setState(() {
+          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+          final inputStart = _currentPromptPosition + promptLength;
+          _terminalText = _terminalText.substring(0, inputStart) + contents;
+          _cursorPosition = _terminalText.length;
+        });
+      }
+    } catch (e) {
+      terminalPrint('LOAD ERROR: $e');
+    }
+  }
+
+  void _printStartupBanner() {
+    setState(() {
+      // Clear terminal and print banner
+      _terminalText = '';
+      _cursorPosition = 0;
+      _currentPromptPosition = 0;
+      terminalPrint('SHQL v 3.0');
+      showPrompt();
+    });
+  }
+
+  void resetEngine() {
+    setState(() {
+      constantsSet = Engine.prepareConstantsSet();
+      runtime = Engine.prepareRuntime(constantsSet);
+      runtime.readlineFunction = () async => await readline();
+
+      runtime.printFunction = (p1) => terminalPrint(p1.toString());
+
+      // runtime.setNullaryFunction("READLINE", () async => await readline());
+    });
+    _printStartupBanner();
+  }
+
+  late ConstantsSet constantsSet;
+  late Runtime runtime;
   // Constants
   static const String _promptSymbol = '> ';
   static const int _tabSpaces = 4;
@@ -71,6 +147,7 @@ class _AncientComputerState extends State<AncientComputer>
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '\\'],
     ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'ENTER'],
     ['SHIFT', 'SPACE', 'BACK', 'DEL', '←', '↑', '↓', '→'],
+    ['LOAD', 'RESET'],
   ];
 
   // Shift mappings for characters
@@ -103,6 +180,8 @@ class _AncientComputerState extends State<AncientComputer>
   @override
   void initState() {
     super.initState();
+    _copyAllShqlAssetsToExternalStorage();
+    resetEngine();
     _cursorController = AnimationController(
       vsync: this,
       duration: _cursorBlinkDuration,
@@ -118,6 +197,7 @@ class _AncientComputerState extends State<AncientComputer>
       _focusNode.requestFocus();
     });
 
+    _printStartupBanner();
     // Initialize display to show NULL for empty input
     _evaluateCurrentInput();
   }
@@ -255,7 +335,11 @@ class _AncientComputerState extends State<AncientComputer>
     try {
       final result = currentInput.isEmpty
           ? null
-          : Engine.calculate(currentInput);
+          : Engine.calculate(
+              currentInput,
+              runtime: runtime.readOnlyChild(),
+              constantsSet: constantsSet,
+            );
 
       final (formatted, padding) = _formatResult(result);
       _displayValue = formatted.padLeft(maxWheels, padding);
@@ -370,6 +454,12 @@ class _AncientComputerState extends State<AncientComputer>
       } else if (key == '↓') {
         _handleArrowDown();
         return;
+      } else if (key == 'LOAD') {
+        _handleLoadPressed();
+        return;
+      } else if (key == 'RESET') {
+        resetEngine();
+        return;
       }
 
       if (key == 'SHIFT') {
@@ -386,9 +476,7 @@ class _AncientComputerState extends State<AncientComputer>
         if (_shiftPressed) {
           // SHIFT-ENTER: Soft return (line break without prompt)
           _terminalText =
-              _terminalText.substring(0, _cursorPosition) +
-              '\n' +
-              _terminalText.substring(_cursorPosition);
+              '${_terminalText.substring(0, _cursorPosition)}\n${_terminalText.substring(_cursorPosition)}';
           _cursorPosition += 1;
         } else {
           // Regular ENTER: Handle based on whether we're waiting for readline or executing command
@@ -406,9 +494,12 @@ class _AncientComputerState extends State<AncientComputer>
               _commandHistory.add(currentInput);
               _historyIndex = -1;
               _currentInput = '';
-              // TODO: Execute/evaluate command here
               try {
-                final result = Engine.calculate(currentInput);
+                final result = Engine.execute(
+                  currentInput,
+                  runtime: runtime,
+                  constantsSet: constantsSet,
+                );
 
                 final (formatted, padding) = _formatResult(result);
                 terminalPrint(formatted);
@@ -417,12 +508,7 @@ class _AncientComputerState extends State<AncientComputer>
                 terminalPrint(e.toString());
               }
             }
-
-            // Move cursor to end and add new prompt
-            _terminalText += '\n$_promptSymbol';
-            _currentPromptPosition =
-                _terminalText.length - _promptSymbol.length;
-            _cursorPosition = _terminalText.length;
+            showPrompt();
           }
         }
       } else if (key == 'BACK') {
@@ -449,18 +535,13 @@ class _AncientComputerState extends State<AncientComputer>
         }
       } else if (key == 'SPACE') {
         _terminalText =
-            _terminalText.substring(0, _cursorPosition) +
-            ' ' +
-            _terminalText.substring(_cursorPosition);
+            '${_terminalText.substring(0, _cursorPosition)} ${_terminalText.substring(_cursorPosition)}';
         _cursorPosition++;
       } else {
         // Check if this is a function name - insert with parentheses
         if (_functionNames.contains(key)) {
           _terminalText =
-              _terminalText.substring(0, _cursorPosition) +
-              key +
-              '()' +
-              _terminalText.substring(_cursorPosition);
+              '${_terminalText.substring(0, _cursorPosition)}$key()${_terminalText.substring(_cursorPosition)}';
           _cursorPosition +=
               key.length + 1; // Position cursor inside parentheses
           _evaluateCurrentInput();
@@ -499,6 +580,13 @@ class _AncientComputerState extends State<AncientComputer>
         });
       }
     });
+  }
+
+  void showPrompt() {
+    // Move cursor to end and add new prompt
+    _terminalText += '\n$_promptSymbol';
+    _currentPromptPosition = _terminalText.length - _promptSymbol.length;
+    _cursorPosition = _terminalText.length;
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -665,7 +753,7 @@ class _AncientComputerState extends State<AncientComputer>
               // Post-it note overlapping terminal lower right corner
               Positioned(
                 top: null,
-                bottom: 300,
+                bottom: 332,
                 right: 10,
                 child: PostItNote(),
               ),

@@ -31,6 +31,13 @@ class ConstantsTable<T> {
     return index;
   }
 
+  T? getByIndex(int index) {
+    if (index < 0 || index >= _constants.length) {
+      return null;
+    }
+    return _constants[index];
+  }
+
   (T?, int?) getByIdentifier(int identifier) {
     var index = _indexByIdentifier[identifier];
     if (index == null) {
@@ -61,91 +68,23 @@ class ConstantsTable<T> {
 }
 
 class ConstantsSet {
-  ConstantsSet()
-    : _constants = ConstantsTable(),
-      _identifiers = ConstantsTable(),
-      _variables = {};
+  ConstantsSet() : constants = ConstantsTable(), identifiers = ConstantsTable();
 
-  ConstantsSet._child(ConstantsSet parent)
-    : _constants = ConstantsTable<dynamic>.copy(parent._constants),
-      _identifiers = parent._identifiers,
-      _variables = Map.from(parent._variables);
+  ConstantsTable<dynamic> constants;
+  ConstantsTable<String> identifiers;
 
-  ConstantsSet._subModel(ConstantsSet parent)
-    : _constants = ConstantsTable(parent: parent._constants.root()),
-      _identifiers = parent._identifiers,
-      _variables = parent._variables;
+  int includeConstant(dynamic value) => constants.include(value);
+  int includeIdentifier(String name) => identifiers.include(name);
 
-  ConstantsTable<dynamic> get constants {
-    return _constants;
-  }
+  int registerConstant(dynamic value, int identifier) =>
+      constants.register(value, identifier);
+  int registerIdentifier(String name, int identifier) =>
+      identifiers.register(name, identifier);
 
-  ConstantsTable<String> get identifiers {
-    return _identifiers;
-  }
+  (dynamic, int?) getConstantByIdentifier(int identifier) =>
+      constants.getByIdentifier(identifier);
+  dynamic getConstantByIndex(int index) => constants.getByIndex(index);
 
-  ConstantsSet createChild() {
-    return ConstantsSet._child(this);
-  }
-
-  ConstantsSet getSubModelScope(int identifier) {
-    var scope = _subModelScopes[identifier];
-    scope ??= _subModelScopes[identifier] = ConstantsSet._subModel(this);
-    return scope;
-  }
-
-  void registerEnum<T extends Enum>(Iterable<T> values) {
-    for (var value in values) {
-      constants.register(
-        value.index,
-        identifiers.include(camelCaseToSnakeCase(value.name)),
-      );
-    }
-  }
-
-  String camelCaseToSnakeCase(String camelCase) {
-    if (camelCase.isEmpty) {
-      return camelCase;
-    }
-
-    final buffer = StringBuffer();
-
-    bool? upperCase;
-    for (var char in camelCase.runes.map((r) => String.fromCharCode(r))) {
-      bool? wasUpperCase = upperCase;
-      if (char.toUpperCase() == char && char.toLowerCase() != char) {
-        // Encountered an uppercase letter
-        upperCase = true;
-      } else {
-        upperCase = false;
-      }
-
-      if (wasUpperCase == false && upperCase) {
-        // Transition from lower to upper case
-        if (buffer.isNotEmpty) {
-          buffer.write('_');
-        }
-      }
-      buffer.write(char.toUpperCase());
-    }
-
-    return buffer.toString();
-  }
-
-  dynamic getVariable(int identifier) {
-    return _variables[identifier];
-  }
-
-  void setVariable(int identifier, dynamic value) {
-    _variables[identifier] = value;
-  }
-
-  bool hasVariable(int identifier) {
-    return _variables.containsKey(identifier);
-  }
-
-  final ConstantsTable<dynamic> _constants;
-  final ConstantsTable<String> _identifiers;
-  final Map<int, dynamic> _variables;
-  final Map<int, ConstantsSet> _subModelScopes = {};
+  (String?, int?) getIdentifierByIndex(int index) =>
+      (identifiers.constants[index], index);
 }

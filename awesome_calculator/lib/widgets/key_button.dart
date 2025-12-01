@@ -97,7 +97,9 @@ class _KeyButtonState extends State<KeyButton>
         baseKey == 'BACK' ||
         baseKey == 'DEL' ||
         baseKey == 'SHIFT' ||
-        baseKey == 'TAB';
+        baseKey == 'TAB' ||
+        baseKey == 'LOAD' ||
+        baseKey == 'RESET';
     final isEnter = baseKey == 'ENTER';
     final width = isFunctionKey
         ? 45.0

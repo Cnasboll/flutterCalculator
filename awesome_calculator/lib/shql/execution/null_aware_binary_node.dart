@@ -1,11 +1,11 @@
 import 'package:awesome_calculator/shql/execution/binary_execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class NullAwareBinaryNode extends BinaryExecutionNode {
   NullAwareBinaryNode(super.lhs, super.rhs);
 
   @override
-  void onChildrenComplete(ConstantsSet constantsSet) {
+  void onChildrenComplete(Runtime runtime) {
     if (lhs.result == null || rhs.result == null) {
       result = null;
       return;

@@ -1,13 +1,13 @@
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class LazyParentExecutionNode extends LazyExecutionNode {
   LazyParentExecutionNode(super.node);
 
   @override
-  bool doTick(ConstantsSet constantsSet) {
+  bool doTick(Runtime runtime) {
     if (children == null) {
       List<ExecutionNode> r = [];
       for (var child in node.children) {
@@ -23,7 +23,7 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
     }
 
     for (var child in children!) {
-      if (!child.tick(constantsSet)) {
+      if (!child.tick(runtime)) {
         return false;
       }
     }
