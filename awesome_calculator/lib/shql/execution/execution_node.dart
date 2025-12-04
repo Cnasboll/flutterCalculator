@@ -1,16 +1,15 @@
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class ExecutionNode {
-  bool tick(Runtime runtime) {
+  Future<bool> tick(Runtime runtime) async {
     if (completed) {
       return true;
     }
-    completed = doTick(runtime);
+    completed = await doTick(runtime);
     return completed;
   }
 
-  bool doTick(Runtime runtime);
-
+  Future<bool> doTick(Runtime runtime);
   bool completed = false;
   String? error;
   dynamic result;

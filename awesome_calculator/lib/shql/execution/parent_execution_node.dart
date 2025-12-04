@@ -5,10 +5,10 @@ abstract class ParentExecutionNode extends ExecutionNode {
   ParentExecutionNode(this.children);
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     for (int i = 0; i < children.length; i++) {
       var child = children[i];
-      if (!child.tick(runtime)) {
+      if (!await child.tick(runtime)) {
         return false;
       }
       if (!onChildComplete(i, child)) {

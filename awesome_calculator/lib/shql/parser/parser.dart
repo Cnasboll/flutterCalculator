@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
@@ -18,90 +20,7 @@ class Parser {
     LookaheadIterator<Token> tokenEnumerator,
     ConstantsSet constantsSet,
   ) {
-    if (tokenEnumerator.peek().keyword == Keywords.fnKeyword) {
-      // Function definition
-      tokenEnumerator.next();
-      return parseFunctionDefinition(tokenEnumerator, constantsSet);
-    }
     return parseExpression(tokenEnumerator, constantsSet);
-  }
-
-  static ParseTree parseFunctionDefinition(
-    LookaheadIterator<Token> tokenEnumerator,
-    ConstantsSet constantsSet,
-  ) {
-    // Function definition
-    tokenEnumerator.next();
-    var functionName = parse(tokenEnumerator, constantsSet);
-    if (functionName.symbol != Symbols.identifier) {
-      throw ParseException(
-        'Expected function name identifier after fn keyword.',
-      );
-    }
-    // Parse argument list
-    var arguments = parseFunctionArgumentList(
-      tokenEnumerator,
-      constantsSet,
-      constantsSet.identifiers.constants[functionName.qualifier!],
-    );
-    // Now parse the function body
-    var body = parse(tokenEnumerator, constantsSet);
-    return ParseTree.withChildren(Symbols.functionDefinition, [
-      functionName,
-      arguments,
-      body,
-    ]);
-  }
-
-  static ParseTree parseFunctionArgumentList(
-    LookaheadIterator<Token> tokenEnumerator,
-    ConstantsSet constantsSet,
-    String functionName,
-  ) {
-    List<ParseTree> arguments = [];
-    var result = ParseTree(Symbols.functionArgumentList, arguments);
-
-    if (tokenEnumerator.hasNext &&
-        tokenEnumerator.peek().tokenType == TokenTypes.lPar) {
-      // Consume the parenthsis
-      tokenEnumerator.next();
-      // Proceed to next token
-      if (tokenEnumerator.peek().tokenType == TokenTypes.rPar) {
-        // Empty argument list
-        // Consume the parenthsis
-        tokenEnumerator.next();
-        return result;
-      }
-      for (;;) {
-        var argument = parse(tokenEnumerator, constantsSet);
-        if (argument.symbol != Symbols.identifier) {
-          throw ParseException(
-            "Expected identifier in argument list of function $functionName.",
-          );
-        }
-        arguments.add(argument);
-
-        if (!tokenEnumerator.hasNext) {
-          throw ParseException(
-            "End of stream when consuming arguments for function $functionName()",
-          );
-        }
-
-        tokenEnumerator.next();
-
-        if (tokenEnumerator.current.tokenType == TokenTypes.rPar) {
-          break;
-        }
-
-        if (tokenEnumerator.current.tokenType != TokenTypes.comma) {
-          var n = arguments.length;
-          throw ParseException(
-            "Expected comma or right parenthesis following $n:th argument for to function declaration $functionName()",
-          );
-        }
-      }
-    }
-    return result;
   }
 
   static ParseTree parseExpression(
@@ -117,10 +36,19 @@ class Parser {
           "Unexpected End of token stream while expecting operand.",
         );
       }
-      tokenEnumerator.next();
 
-      operandStack.add(parseOperand(tokenEnumerator, constantsSet));
+      var brackets = tryParseBrackets(tokenEnumerator, constantsSet);
+      if (brackets != null) {
+        if (brackets.symbol == Symbols.tuple && brackets.children.length == 1) {
+          operandStack.add(brackets.children[0]);
+        } else {
+          operandStack.add(brackets);
+        }
+      } else {
+        tokenEnumerator.next();
 
+        operandStack.add(parseOperand(tokenEnumerator, constantsSet));
+      }
       // If we find a left parenthesis here, consider this a multiplication!
       if (tokenEnumerator.hasNext &&
           tokenEnumerator.peek().tokenType == TokenTypes.lPar) {
@@ -199,24 +127,19 @@ class Parser {
       ]);
     }
 
-    // If we find a left parenthesis, we recurse as that is the highest precedence
-    if (tokenEnumerator.current.tokenType == TokenTypes.lPar) {
-      var parseTree = parse(tokenEnumerator, constantsSet);
-      consume(tokenEnumerator, TokenTypes.rPar, ")");
-      return parseTree;
-    }
-
     if (tokenEnumerator.current.tokenType == TokenTypes.identifier) {
       String identifierName = tokenEnumerator.current.lexeme;
+      var brackets = tryParseBrackets(tokenEnumerator, constantsSet);
+      List<ParseTree> children = [];
+      if (brackets != null) {
+        children.add(brackets);
+      }
+
       return ParseTree(
         Symbols.identifier,
-        parseArgumentList(tokenEnumerator, constantsSet, identifierName),
+        children,
         constantsSet.identifiers.include(identifierName.toUpperCase()),
       );
-    }
-
-    if (tokenEnumerator.current.tokenType == TokenTypes.lBrack) {
-      return ParseTree(Symbols.list, parseList(tokenEnumerator, constantsSet));
     }
 
     String currentLexeme = tokenEnumerator.current.lexeme;
@@ -263,6 +186,54 @@ class Parser {
     );
   }
 
+  static ParseTree? tryParseBrackets(
+    LookaheadIterator<Token> tokenEnumerator,
+    ConstantsSet constantsSet,
+  ) {
+    if (!tokenEnumerator.hasNext || !tokenEnumerator.peek().isLeftBracket) {
+      return null;
+    }
+
+    // Consume the left bracket
+    var leftBracket = tokenEnumerator.next();
+    var rightBracketType = leftBracket.correspondingRightBracket!;
+
+    List<ParseTree> arguments = [];
+    var result = ParseTree(leftBracket.bracketSymbol!, arguments);
+
+    // Proceed to next token
+    if (tokenEnumerator.peek().tokenType == rightBracketType) {
+      // Empty argument list
+      // Consume the parenthsis
+      tokenEnumerator.next();
+      return result;
+    }
+
+    for (;;) {
+      arguments.add(parse(tokenEnumerator, constantsSet));
+
+      if (!tokenEnumerator.hasNext) {
+        throw ParseException(
+          "End of stream when expecting ${Token.tokenType2String(TokenTypes.comma)} or ${Token.tokenType2String(rightBracketType)}",
+        );
+      }
+
+      tokenEnumerator.next();
+
+      if (tokenEnumerator.current.tokenType == rightBracketType) {
+        break;
+      }
+
+      if (tokenEnumerator.current.tokenType != TokenTypes.comma) {
+        var n = arguments.length;
+        throw ParseException(
+          "Expected ${Token.tokenType2String(TokenTypes.comma)} or ${Token.tokenType2String(rightBracketType)} following $n:th member",
+        );
+      }
+    }
+    return result;
+  }
+
   static List<ParseTree> parseArgumentList(
     LookaheadIterator<Token> tokenEnumerator,
     ConstantsSet constantsSet,
@@ -305,43 +276,6 @@ class Parser {
       }
     }
     return arguments;
-  }
-
-  static List<ParseTree> parseList(
-    LookaheadIterator<Token> tokenEnumerator,
-    ConstantsSet constantsSet,
-  ) {
-    List<ParseTree> elements = [];
-
-    // Proceed to next token
-    if (tokenEnumerator.peek().tokenType == TokenTypes.rBrack) {
-      // Empty list
-      // Consume the bracket
-      tokenEnumerator.next();
-      return elements;
-    }
-    for (;;) {
-      elements.add(parse(tokenEnumerator, constantsSet));
-
-      if (!tokenEnumerator.hasNext) {
-        throw ParseException("End of stream when consuming list");
-      }
-
-      tokenEnumerator.next();
-
-      if (tokenEnumerator.current.tokenType == TokenTypes.rBrack) {
-        break;
-      }
-
-      if (tokenEnumerator.current.tokenType != TokenTypes.comma) {
-        var n = elements.length;
-        throw ParseException(
-          "Expected comma or right bracket following $n:th list element",
-        );
-      }
-    }
-
-    return elements;
   }
 
   static void consume(

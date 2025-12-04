@@ -36,6 +36,7 @@ class _AncientComputerState extends State<AncientComputer>
       // List all .shql files in assets manually (since Flutter can't list assets at runtime)
       final assetFiles = [
         'hello_world.shql',
+        'hello_name.shql',
         // Add more .shql files here as you add them to assets
       ];
       Directory extDir = Platform.isAndroid
@@ -332,21 +333,29 @@ class _AncientComputerState extends State<AncientComputer>
     final inputStart = _currentPromptPosition + _promptSymbol.length;
     final currentInput = _terminalText.substring(inputStart).trim();
 
-    try {
-      final result = currentInput.isEmpty
-          ? null
-          : Engine.calculate(
-              currentInput,
-              runtime: runtime.readOnlyChild(),
-              constantsSet: constantsSet,
-            );
-
-      final (formatted, padding) = _formatResult(result);
-      _displayValue = formatted.padLeft(maxWheels, padding);
-    } catch (e) {
-      // Keep previous valid result
-      print(e);
+    if (currentInput.isEmpty) {
+      final (formatted, padding) = _formatResult(null);
+      setState(() {
+        _displayValue = formatted.padLeft(maxWheels, padding);
+      });
+      return;
     }
+
+    Engine.calculate(
+      currentInput,
+      runtime: runtime.readOnlyChild(),
+      constantsSet: constantsSet,
+    ).then((result) {
+      if (!mounted) return;
+      final (formatted, padding) = _formatResult(result);
+      setState(() {
+        _displayValue = formatted.padLeft(maxWheels, padding);
+      });
+    }).catchError((e) {
+      // Keep previous valid result
+      if (!mounted) return;
+      print(e);
+    });
   }
 
   /// Handle up arrow: command history on last line, cursor movement otherwise
@@ -482,33 +491,35 @@ class _AncientComputerState extends State<AncientComputer>
           // Regular ENTER: Handle based on whether we're waiting for readline or executing command
           final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
           final inputStart = _currentPromptPosition + promptLength;
-          final currentInput = _terminalText.substring(inputStart).trim();
-
           if (_waitingForInput && _readlineCallback != null) {
             // Readline mode: complete the readline future with the input
-            _readlineCallback!(currentInput);
+            _readlineCallback!(_terminalText.substring(_currentPromptPosition));
             // Don't add to history or create new prompt - let the program control flow
           } else {
+            final currentInput = _terminalText.substring(inputStart).trim();
             // Normal command mode: execute and add to history
             if (currentInput.isNotEmpty) {
               _commandHistory.add(currentInput);
               _historyIndex = -1;
               _currentInput = '';
-              try {
-                final result = Engine.execute(
-                  currentInput,
-                  runtime: runtime,
-                  constantsSet: constantsSet,
-                );
 
+              Engine.execute(
+                currentInput,
+                runtime: runtime,
+                constantsSet: constantsSet,
+              ).then((result) {
+                if (!mounted) return;
                 final (formatted, padding) = _formatResult(result);
                 terminalPrint(formatted);
-              } catch (e) {
-                // Keep previous valid result
+                showPrompt();
+              }).catchError((e) {
+                if (!mounted) return;
                 terminalPrint(e.toString());
-              }
+                showPrompt();
+              });
+            } else {
+              showPrompt();
             }
-            showPrompt();
           }
         }
       } else if (key == 'BACK') {

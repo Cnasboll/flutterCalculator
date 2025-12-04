@@ -6,8 +6,10 @@ enum ECharCodeClasses {
   whitespace,
   lPar,
   rPar,
-  lBrack,
-  rBrack,
+  lSquareBrack,
+  rSquareBrack,
+  lBrace,
+  rBrace,
   underscore,
   comma,
   dot,
@@ -51,8 +53,10 @@ enum TokenizerState {
   acceptNotMatch,
   acceptLPar,
   acceptRPar,
-  acceptLBrack,
-  acceptRBrack,
+  acceptLSquareBrack,
+  acceptRSquareBrack,
+  acceptLBrace,
+  acceptRBrace,
   acceptIdentifier,
   acceptDivOp,
   acceptModOp,
@@ -196,8 +200,10 @@ class StateMachine {
     return {
       '(': ECharCodeClasses.lPar,
       ')': ECharCodeClasses.rPar,
-      '[': ECharCodeClasses.lBrack,
-      ']': ECharCodeClasses.rBrack,
+      '[': ECharCodeClasses.lSquareBrack,
+      ']': ECharCodeClasses.rSquareBrack,
+      '{': ECharCodeClasses.lBrace,
+      '}': ECharCodeClasses.rBrace,
       '_': ECharCodeClasses.underscore,
       ',': ECharCodeClasses.comma,
       '.': ECharCodeClasses.dot,
@@ -250,10 +256,14 @@ class StateMachine {
           TokenizerState.acceptMatch,
       (TokenizerState.start, ECharCodeClasses.lPar): TokenizerState.acceptLPar,
       (TokenizerState.start, ECharCodeClasses.rPar): TokenizerState.acceptRPar,
-      (TokenizerState.start, ECharCodeClasses.lBrack):
-          TokenizerState.acceptLBrack,
-      (TokenizerState.start, ECharCodeClasses.rBrack):
-          TokenizerState.acceptRBrack,
+      (TokenizerState.start, ECharCodeClasses.lSquareBrack):
+          TokenizerState.acceptLSquareBrack,
+      (TokenizerState.start, ECharCodeClasses.rSquareBrack):
+          TokenizerState.acceptRSquareBrack,
+      (TokenizerState.start, ECharCodeClasses.lBrace):
+          TokenizerState.acceptLBrace,
+      (TokenizerState.start, ECharCodeClasses.rBrace):
+          TokenizerState.acceptRBrace,
       (TokenizerState.start, ECharCodeClasses.divOp):
           TokenizerState.acceptDivOp,
       (TokenizerState.start, ECharCodeClasses.modOp):
@@ -351,8 +361,9 @@ class StateMachine {
       TokenizerState.acceptGt: TokenTypes.gt,
       TokenizerState.acceptGtEq: TokenTypes.gtEq,
       TokenizerState.acceptIdentifier: TokenTypes.identifier,
-      TokenizerState.acceptLBrack: TokenTypes.lBrack,
+      TokenizerState.acceptLSquareBrack: TokenTypes.lSquareBrack,
       TokenizerState.acceptLPar: TokenTypes.lPar,
+      TokenizerState.acceptLBrace: TokenTypes.lBrace,
       TokenizerState.acceptLt: TokenTypes.lt,
       TokenizerState.acceptLtEq: TokenTypes.ltEq,
       TokenizerState.acceptMinusOp: TokenTypes.sub,
@@ -368,8 +379,9 @@ class StateMachine {
       TokenizerState.acceptSingleQuotedRawString:
           TokenTypes.singleQuotedRawStringLiteral,
       TokenizerState.acceptPlusOp: TokenTypes.add,
-      TokenizerState.acceptRBrack: TokenTypes.rBrack,
+      TokenizerState.acceptRSquareBrack: TokenTypes.rSquareBrack,
       TokenizerState.acceptRPar: TokenTypes.rPar,
+      TokenizerState.acceptRBrace: TokenTypes.rBrace,
     };
   }
 

@@ -7,8 +7,8 @@ class NullaryLambdaExecutionNode extends ExecutionNode {
   NullaryLambdaExecutionNode(this.nullaryFunction);
 
   @override
-  bool doTick(Runtime runtime) {
-    result = nullaryFunction();
+  Future<bool> doTick(Runtime runtime) async {
+    result = await nullaryFunction();
     return true;
   }
 }

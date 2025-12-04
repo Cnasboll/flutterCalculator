@@ -31,15 +31,17 @@ enum Symbols {
   doKeyword,
   beginKeyword,
   endKeyword,
-  functionDefinition,
   forKeyword,
   toKeyword,
+  breakKeyword,
+  returnKeyword,
   stepKeyword,
   unaryPlus,
   unaryMinus,
   identifier,
   list,
-  functionArgumentList,
+  tuple,
+  map,
   integerLiteral,
   floatLiteral,
   stringLiteral,
@@ -80,8 +82,10 @@ enum TokenTypes {
   singleQuotedRawStringLiteral,
   lPar,
   rPar,
-  lBrack,
-  rBrack,
+  lSquareBrack,
+  rSquareBrack,
+  lBrace,
+  rBrace,
   identifier,
   comma,
   dot,
@@ -104,10 +108,11 @@ enum Keywords {
   doKeyword,
   beginKeyword,
   endKeyword,
-  fnKeyword,
   forKeyword,
   toKeyword,
   stepKeyword,
+  breakKeyword,
+  returnKeyword,
   nullKeyword,
 }
 
@@ -178,7 +183,7 @@ class Token {
         break;
     }
 
-    var keywordSymbol = _keywordOpTable[keyword];
+    var keywordSymbol = _keywordTable[keyword];
     if (keywordSymbol != null) {
       symbol = keywordSymbol;
     } else {
@@ -266,10 +271,11 @@ class Token {
       "DO": Keywords.doKeyword,
       "BEGIN": Keywords.beginKeyword,
       "END": Keywords.endKeyword,
-      "FN": Keywords.fnKeyword,
       "FOR": Keywords.forKeyword,
       "TO": Keywords.toKeyword,
       "STEP": Keywords.stepKeyword,
+      "BREAK": Keywords.breakKeyword,
+      "RETURN": Keywords.returnKeyword,
       "NULL": Keywords.nullKeyword,
     };
   }
@@ -348,7 +354,7 @@ class Token {
     };
   }
 
-  static Map<Keywords, Symbols> getKeywordOpTable() {
+  static Map<Keywords, Symbols> getKeywordTable() {
     return {
       Keywords.inKeyword: Symbols.inOp,
       Keywords.notKeyword: Symbols.not,
@@ -362,12 +368,88 @@ class Token {
       Keywords.doKeyword: Symbols.doKeyword,
       Keywords.beginKeyword: Symbols.beginKeyword,
       Keywords.endKeyword: Symbols.endKeyword,
-      Keywords.fnKeyword: Symbols.functionDefinition,
       Keywords.forKeyword: Symbols.forKeyword,
       Keywords.toKeyword: Symbols.toKeyword,
       Keywords.stepKeyword: Symbols.stepKeyword,
+      Keywords.breakKeyword: Symbols.breakKeyword,
+      Keywords.returnKeyword: Symbols.returnKeyword,
       Keywords.nullKeyword: Symbols.nullLiteral,
     };
+  }
+
+  static List<TokenTypes> getLeftBrackets() {
+    return [TokenTypes.lPar, TokenTypes.lSquareBrack, TokenTypes.lBrace];
+  }
+
+  static Map<TokenTypes, TokenTypes> getMatchingBrackets() {
+    return {
+      TokenTypes.lPar: TokenTypes.rPar,
+      TokenTypes.lSquareBrack: TokenTypes.rSquareBrack,
+      TokenTypes.lBrace: TokenTypes.rBrace,
+    };
+  }
+
+  static Map<TokenTypes, Symbols> getBracketSymbol() {
+    return {
+      TokenTypes.lPar: Symbols.tuple,
+      TokenTypes.rPar: Symbols.tuple,
+      TokenTypes.lSquareBrack: Symbols.list,
+      TokenTypes.rSquareBrack: Symbols.list,
+      TokenTypes.lBrace: Symbols.map,
+      TokenTypes.rBrace: Symbols.map,
+    };
+  }
+
+  static Map<TokenTypes, String> tokenTypesToStrings() {
+    return {
+      TokenTypes.pow: "^",
+      TokenTypes.mul: "*",
+      TokenTypes.div: "/",
+      TokenTypes.mod: "%",
+      TokenTypes.add: "+",
+      TokenTypes.sub: "-",
+      TokenTypes.lt: "<",
+      TokenTypes.ltEq: "<=",
+      TokenTypes.eq: "=",
+      TokenTypes.neq: "!=",
+      TokenTypes.gt: ">",
+      TokenTypes.gtEq: ">=",
+      TokenTypes.match: "~",
+      TokenTypes.not: "!",
+      TokenTypes.notMatch: "!~",
+      TokenTypes.integerLiteral: "integer",
+      TokenTypes.floatLiteral: "float",
+      TokenTypes.doubleQuotedStringLiteral: "string",
+      TokenTypes.doubleQuotedRawStringLiteral: "string",
+      TokenTypes.singleQuotedStringLiteral: "string",
+      TokenTypes.singleQuotedRawStringLiteral: "string",
+      TokenTypes.lPar: "(",
+      TokenTypes.rPar: ")",
+      TokenTypes.lSquareBrack: "[",
+      TokenTypes.rSquareBrack: "]",
+      TokenTypes.lBrace: "{",
+      TokenTypes.rBrace: "}",
+      TokenTypes.identifier: "identifier",
+      TokenTypes.comma: ",",
+      TokenTypes.dot: ".",
+      TokenTypes.colon: ":",
+      TokenTypes.semiColon: ";",
+      TokenTypes.assignment: ":=",
+    };
+  }
+
+  static String tokenType2String(TokenTypes tokenType) {
+    return tokenTypesToStrings()[tokenType]!;
+  }
+
+  bool get isLeftBracket => _leftBrackets.contains(_tokenType);
+  bool get isRightBracket => _matchingBrackets.containsValue(_tokenType);
+  TokenTypes? get correspondingRightBracket {
+    return _matchingBrackets[_tokenType];
+  }
+
+  Symbols? get bracketSymbol {
+    return _bracketSymbols[_tokenType];
   }
 
   final String _lexeme;
@@ -376,7 +458,11 @@ class Token {
   static final Map<Symbols, int> _operatorPrecendences =
       getOperatorPrecendences();
   static final Map<TokenTypes, Symbols> _symbolTable = getSymbolTable();
-  static final Map<Keywords, Symbols> _keywordOpTable = getKeywordOpTable();
+  static final Map<Keywords, Symbols> _keywordTable = getKeywordTable();
+  static final List<TokenTypes> _leftBrackets = getLeftBrackets();
+  static final Map<TokenTypes, TokenTypes> _matchingBrackets =
+      getMatchingBrackets();
+  static final Map<TokenTypes, Symbols> _bracketSymbols = getBracketSymbol();
   final Keywords _keyword;
   final LiteralTypes _literalType;
   final int _operatorPrecedence;

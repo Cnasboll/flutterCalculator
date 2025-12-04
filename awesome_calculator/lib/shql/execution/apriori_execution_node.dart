@@ -8,7 +8,7 @@ class AprioriExecutionNode extends ExecutionNode {
   }
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     return true;
   }
 }

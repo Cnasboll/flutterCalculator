@@ -5,7 +5,7 @@ class ConstantNode<T> extends LazyExecutionNode {
   ConstantNode(super.node);
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     result = runtime.constants.getByIndex(node.qualifier!) as T;
     return true;
   }

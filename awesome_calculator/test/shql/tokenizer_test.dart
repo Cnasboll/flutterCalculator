@@ -191,8 +191,8 @@ void main() {
     expect(v[0].tokenType, TokenTypes.comma);
     expect(v[1].tokenType, TokenTypes.dot);
     expect(v[1].symbol, Symbols.memberAccess);
-    expect(v[2].tokenType, TokenTypes.lBrack);
-    expect(v[3].tokenType, TokenTypes.rBrack);
+    expect(v[2].tokenType, TokenTypes.lSquareBrack);
+    expect(v[3].tokenType, TokenTypes.rSquareBrack);
     expect(v[4].tokenType, TokenTypes.lPar);
     expect(v[5].tokenType, TokenTypes.rPar);
     expect(v[6].tokenType, TokenTypes.not);

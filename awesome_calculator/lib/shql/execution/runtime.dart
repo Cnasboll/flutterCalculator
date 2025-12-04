@@ -1,4 +1,13 @@
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
+import 'package:awesome_calculator/shql/parser/parse_tree.dart';
+
+/// Represents a user-defined function with its arguments and body.
+class UserFunction {
+  final List<int> argumentIdentifiers;
+  final ParseTree body;
+
+  UserFunction({required this.argumentIdentifiers, required this.body});
+}
 
 class Runtime {
   late ConstantsTable<dynamic> _constants;
@@ -7,6 +16,7 @@ class Runtime {
   late Map<String, Function(dynamic p1)> _unaryFunctions;
   late Map<String, Function(dynamic p1, dynamic p2)> _binaryFunctions;
   late Map<int, dynamic> _variables;
+  late Map<int, UserFunction> _userFunctions;
   late Runtime? _parent;
   final Map<int, Runtime> _subModelScopes = {};
 
@@ -33,6 +43,7 @@ class Runtime {
     );
     hookUpConsole();
     _variables = {};
+    _userFunctions = {};
     _parent = null;
   }
 
@@ -50,6 +61,7 @@ class Runtime {
     );
     hookUpConsole();
     _variables = {};
+    _userFunctions = {};
     _parent = parent;
     _readonly = readOnly;
   }
@@ -152,6 +164,31 @@ class Runtime {
     }
     // Check parent scope
     return _parent?.hasVariable(identifier) ?? false;
+  }
+
+  UserFunction? getUserFunction(int identifier) {
+    if (_userFunctions.containsKey(identifier)) {
+      return _userFunctions[identifier];
+    }
+    // Check parent scope
+    return _parent?.getUserFunction(identifier);
+  }
+
+  void setUserFunction(int identifier, UserFunction function) {
+    if (_readonly) {
+      return;
+    }
+
+    // Always set in current scope. This allows shadowing.
+    _userFunctions[identifier] = function;
+  }
+
+  bool hasUserFunction(int identifier) {
+    if (_userFunctions.containsKey(identifier)) {
+      return true;
+    }
+    // Check parent scope
+    return _parent?.hasUserFunction(identifier) ?? false;
   }
 
   /// Resolves an identifier to its value, checking variables first (current scope, then parents),

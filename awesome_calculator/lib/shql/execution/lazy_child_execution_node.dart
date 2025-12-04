@@ -10,12 +10,12 @@ abstract class LazyChildExecutionNode extends LazyExecutionNode {
   ExecutionNode? createChildNode(Runtime runtime);
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     _child ??= createChildNode(runtime);
     if (_child == null) {
       return true;
     }
-    if (!child.tick(runtime)) {
+    if (!await child.tick(runtime)) {
       return false;
     }
     result = child.result;

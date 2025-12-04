@@ -7,7 +7,7 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
   LazyParentExecutionNode(super.node);
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     if (children == null) {
       List<ExecutionNode> r = [];
       for (var child in node.children) {
@@ -23,7 +23,7 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
     }
 
     for (var child in children!) {
-      if (!child.tick(runtime)) {
+      if (!await child.tick(runtime)) {
         return false;
       }
     }

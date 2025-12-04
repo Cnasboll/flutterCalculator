@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parser.dart';
@@ -130,7 +132,9 @@ void main() {
     var constantsSet = ConstantsSet();
     var p = Parser.parse(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.identifier);
-    expect(p.children.isEmpty, true);
+    expect(p.children.length, 1);
+    expect(p.children[0].symbol, Symbols.tuple);
+    expect(p.children[0].children.isEmpty, true);
   });
 
   test('Parse function call followed by operator', () {

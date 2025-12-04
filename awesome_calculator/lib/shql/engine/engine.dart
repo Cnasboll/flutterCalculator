@@ -19,6 +19,7 @@ import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_exe
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/function_definition_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
+import 'package:awesome_calculator/shql/execution/map_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/pattern/in_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/pattern/match_execution_node.dart';
@@ -30,6 +31,7 @@ import 'package:awesome_calculator/shql/execution/relational/less_than_execution
 import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
@@ -47,11 +49,11 @@ class RuntimeException implements Exception {
 }
 
 class Engine {
-  static dynamic execute(
+  static Future<dynamic> execute(
     String expression, {
     Runtime? runtime,
     ConstantsSet? constantsSet,
-  }) {
+  }) async {
     var v = Tokenizer.tokenize(expression).toList();
     constantsSet ??= prepareConstantsSet();
     runtime ??= prepareRuntime(constantsSet);
@@ -79,21 +81,21 @@ class Engine {
       case 0:
         return null;
       case 1:
-        return evaluate(p.first, runtime);
+        return await evaluate(p.first, runtime);
       default:
         dynamic lastResult;
         for (var tree in p) {
-          lastResult = evaluate(tree, runtime);
+          lastResult = await evaluate(tree, runtime);
         }
         return lastResult;
     }
   }
 
-  static dynamic calculate(
+  static Future<dynamic> calculate(
     String expression, {
     Runtime? runtime,
     ConstantsSet? constantsSet,
-  }) {
+  }) async {
     var v = Tokenizer.tokenize(expression).toList();
     constantsSet ??= prepareConstantsSet();
     runtime ??= prepareRuntime(constantsSet);
@@ -122,10 +124,10 @@ class Engine {
       case 0:
         break;
       case 1:
-        result = preview(p.first, runtime);
+        result = await preview(p.first, runtime);
       default:
         for (var tree in p) {
-          result = preview(tree, runtime);
+          result = await preview(tree, runtime);
         }
     }
 
@@ -174,13 +176,13 @@ class Engine {
     return runtime;
   }
 
-  static dynamic evaluate(ParseTree parseTree, Runtime runtime) {
+  static Future<dynamic> evaluate(ParseTree parseTree, Runtime runtime) async {
     var executionNode = createExecutionNode(parseTree);
     if (executionNode == null) {
       throw RuntimeException('Failed to create execution node.');
     }
 
-    while (!executionNode.tick(runtime)) {}
+    while (!await executionNode.tick(runtime)) {}
 
     if (executionNode.error != null) {
       throw RuntimeException(executionNode.error!);
@@ -189,13 +191,16 @@ class Engine {
     return executionNode.result;
   }
 
-  static (dynamic, bool) preview(ParseTree parseTree, Runtime runtime) {
+  static Future<(dynamic, bool)> preview(
+    ParseTree parseTree,
+    Runtime runtime,
+  ) async {
     var executionNode = createExecutionNode(parseTree);
     if (executionNode == null) {
       throw RuntimeException('Failed to create execution node.');
     }
 
-    if (!executionNode.tick(runtime)) {
+    if (!await executionNode.tick(runtime)) {
       return (null, false);
     }
 
@@ -227,10 +232,6 @@ class Engine {
 
     if (parseTree.symbol == Symbols.memberAccess) {
       return MemberAccessExecutionNode(parseTree);
-    }
-
-    if (parseTree.symbol == Symbols.functionDefinition) {
-      return FunctionDefinitionExecutionNode(parseTree);
     }
 
     if (parseTree.symbol == Symbols.assignment) {
@@ -288,7 +289,11 @@ class Engine {
   static ExecutionNode? tryCreateTerminalExecutionNode(ParseTree parseTree) {
     switch (parseTree.symbol) {
       case Symbols.list:
-        return ListLiteralNode(parseTree);
+        return ListLiteralNode(parseTree);      
+      case Symbols.tuple:
+        return TupleLiteralNode(parseTree);
+      case Symbols.map:
+        return MapLiteralNode(parseTree);
       case Symbols.floatLiteral:
         return ConstantNode<double>(parseTree);
       case Symbols.integerLiteral:

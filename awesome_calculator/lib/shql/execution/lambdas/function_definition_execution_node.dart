@@ -1,76 +1,38 @@
 import 'package:awesome_calculator/shql/engine/engine.dart';
-import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/lambdas/unary_lambda_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/lazy_child_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
-class FunctionDefinitionExecutionNode extends LazyChildExecutionNode {
+class FunctionDefinitionExecutionNode extends LazyExecutionNode {
   FunctionDefinitionExecutionNode(super.node);
 
-  @override
-  ExecutionNode? createChildNode(Runtime runtime) {
-    var identifier = runtime.identifiers.getByIndex(node.qualifier!)!;
-    var (constant, index) = runtime.constants.getByIdentifier(node.qualifier!);
-    if (constant != null || index != null) {
-      if (node.children.isNotEmpty) {
-        var argumentCount = node.children.length;
-        if (argumentCount == 1) {
-          var lhs = Engine.createExecutionNode(node.children[0]);
-          return MultiplicationExecutionNode(
-            AprioriExecutionNode(constant),
-            lhs!,
-          );
-        }
-        error =
-            "Attempt to use constant $identifier as a function: ($argumentCount) argument(s) given.";
-        return null;
-      }
-      result = constant;
-      return null;
+@override
+  Future<bool> doTick(Runtime runtime) async {
+    // Verify that node has exactly two children
+    if (node.children.length != 2) {
+      error =
+          "Assignment operator requires exactly two operands, ${node.children.length} given.";
+      return true;
     }
 
-    var unaryFunction = runtime.getUnaryFunction(identifier);
-    if (unaryFunction != null) {
-      if (node.children.length != 1) {
-        var argumentCount = node.children.length;
-        error =
-            "Function $identifier() takes 1 argument, $argumentCount given.";
-        return null;
-      }
-      return UnaryLambdaExecutionNode(
-        unaryFunction,
-        Engine.createExecutionNode(node.children.first)!,
-      );
+    // Verify that first child is an identifier
+    if (node.children[0].symbol != Symbols.identifier) {
+      error = "Left-hand side of assignment must be an identifier.";
+      return true;
     }
 
-    var binaryFunction = runtime.getBinaryFunction(identifier);
-    if (binaryFunction != null) {
-      if (node.children.length != 2) {
-        var argumentCount = node.children.length;
-        error =
-            "Function $identifier() takes 2 arguments, $argumentCount given.";
-        return null;
-      }
+    _rhs ??= Engine.createExecutionNode(node.children[1])!;
 
-      return BinaryLambdaExecutionNode(
-        binaryFunction,
-        Engine.createExecutionNode(node.children[0])!,
-        Engine.createExecutionNode(node.children[1])!,
-      );
+    if (!await _rhs!.tick(runtime)) {
+      return false;
     }
 
-    if (node.children.isNotEmpty) {
-      error = 'Unidentified identifier "$identifier" used as a function.';
-      return null;
-    }
-    error = '''Unidentified identifier "$identifier" used as a constant.
-
-Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than:     name ~ Batman
-
-''';
-    return null;
+    var identifier = node.children[0].qualifier!;
+    runtime.setVariable(identifier, _rhs!.result);
+    result = _rhs!.result;
+    return true;
   }
+
+  ExecutionNode? _rhs;
 }

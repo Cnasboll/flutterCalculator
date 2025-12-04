@@ -8,7 +8,7 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
   MemberAccessExecutionNode(super.node);
 
   @override
-  bool doTick(Runtime runtime) {
+  Future<bool> doTick(Runtime runtime) async {
     if (node.children.length != 2) {
       error = 'Member access must have exactly 2 children';
       return true;
@@ -46,7 +46,7 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
     }
 
     // Tick the right node until complete
-    while (!rightNode.tick(targetScope)) {}
+    while (!await rightNode.tick(targetScope)) {}
 
     if (rightNode.error != null) {
       error = rightNode.error;
