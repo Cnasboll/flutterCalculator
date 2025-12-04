@@ -1,4 +1,5 @@
 import 'package:awesome_calculator/shql/engine/engine.dart';
+import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parser.dart';
@@ -28,6 +29,20 @@ void main() {
   test('Calculate implicit constant multiplication with parenthesis', () async {
     expect(await Engine.calculate('ANSWER(2)'), 84);
   });
+
+  test(
+    'Calculate implicit constant multiplication with parenthesis first',
+    () async {
+      expect(await Engine.calculate('(2)ANSWER'), 84);
+    },
+  );
+
+  test(
+    'Calculate implicit constant multiplication with constant within parenthesis first',
+    () async {
+      expect(await Engine.calculate('(ANSWER)2'), 84);
+    },
+  );
 
   test('Calculate implicit multiplication with parenthesis', () async {
     expect(await Engine.calculate('2(3)'), 6);
@@ -299,5 +314,17 @@ void main() {
 
   test('Test increment', () async {
     expect(await Engine.calculate('i:=41;i:=i+1'), 42);
+  });
+
+  test('Test function definition', () async {
+    expect((await Engine.calculate('f(x):=x*2')).runtimeType, UserFunction);
+  });
+
+  test('Test user function', () async {
+    expect((await Engine.calculate('f(x):=x*2;f(2)')), 4);
+  });
+
+  test('Test recursion', () async {
+    expect((await Engine.calculate('fac(x) := IF x <= 1 THEN 1 ELSE x * fac(x-1);fac(3)')), 6);
   });
 }

@@ -3,8 +3,10 @@ import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/indexer_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/lambda_expression_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/nullary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/unary_lambda_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/user_function_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_child_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
@@ -16,21 +18,21 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
 
   @override
   ExecutionNode? createChildNode(Runtime runtime) {
-    var identifier = runtime.identifiers.constants[node.qualifier!];
+    var identifier = node.qualifier!;
+    var name = runtime.identifiers.constants[identifier];
 
     // A identifier can have 0 or 1 chhildren
     if (node.children.length > 1) {
       error =
-          "Identifier $identifier can have at most one child, ${node.children.length} given.";
+          "Identifier $name can have at most one child, ${node.children.length} given.";
       return null;
     }
 
     // Try to resolve identifier (variables shadow constants, walks parent chain)
-    var (value, isValue) = runtime.resolveIdentifier(node.qualifier!);
+    var (value, isValue) = runtime.resolveIdentifier(identifier);
     var resolved = isValue;
-    var nullaryFunction = resolved
-        ? null
-        : runtime.getNullaryFunction(identifier);
+    var userFunction = resolved ? null : runtime.getUserFunction(identifier);
+    var nullaryFunction = resolved ? null : runtime.getNullaryFunction(name);
     resolved = resolved || nullaryFunction != null;
     var unaryFunction = resolved ? null : runtime.getUnaryFunction(identifier);
     resolved = resolved || unaryFunction != null;
@@ -45,19 +47,16 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       var childSymbol = child.symbol;
 
       if (childSymbol == Symbols.list) {
-        return createIndexerExecutionNode(
-          isValue,
-          identifier,
-          value,
-          child.children,
-        );
+        return createIndexerExecutionNode(isValue, name, value, child.children);
       }
 
       if (childSymbol == Symbols.tuple) {
         return createFunctionCallExecutionNode(
+          runtime,
           isValue,
-          identifier,
+          name,
           value,
+          userFunction,
           nullaryFunction,
           unaryFunction,
           binaryFunction,
@@ -65,7 +64,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
         );
       }
 
-      error = "Identifier $identifier can only have a tuple or list as child.";
+      error = "Identifier $name can only have a tuple or list as child.";
       return null;
     }
 
@@ -77,11 +76,15 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     if (nullaryFunction != null ||
         unaryFunction != null ||
         binaryFunction != null) {
-      error = "Missing arguments list to function $identifier().";
+      error = "Missing arguments list to function $name().";
       return null;
     }
 
-    error = '''Unidentified identifier "$identifier" used as a constant.
+    if (userFunction != null) {
+      return LambdaExpressionExecutionNode(name, userFunction);
+    }
+
+    error = '''Unidentified identifier "$name" used as a constant.
 
 Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than:     name ~ Batman
 
@@ -90,9 +93,11 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
   }
 
   ExecutionNode? createFunctionCallExecutionNode(
+    Runtime runtime,
     bool isValue,
-    String identifier,
+    String name,
     value,
+    UserFunction? userFunction,
     Function()? nullaryFunction,
     Function(dynamic p1)? unaryFunction,
     Function(dynamic p1, dynamic p2)? binaryFunction,
@@ -102,7 +107,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     if (isValue) {
       if (argumentCount != 1) {
         error =
-            "Attempt to use value $identifier as a function: ($argumentCount) argument(s) given.";
+            "Attempt to use value $name as a function: ($argumentCount) argument(s) given.";
         return null;
       }
 
@@ -111,10 +116,28 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
       return MultiplicationExecutionNode(AprioriExecutionNode(value), lhs!);
     }
 
+    if (userFunction != null) {
+      if (argumentCount != userFunction.argumentIdentifiers.length) {
+        error =
+            "Function $name) takes ${userFunction.argumentIdentifiers.length} arguments, $argumentCount given.";
+        return null;
+      }
+
+      var argumentNodes = <ExecutionNode>[];
+      for (var argument in arguments) {
+        argumentNodes.add(Engine.createExecutionNode(argument)!);
+      }
+
+      return UserFunctionExecutionNode(
+        userFunction.argumentIdentifiers,
+        argumentNodes,
+        Engine.createExecutionNode(userFunction.body)!,
+      );
+    }
+
     if (nullaryFunction != null) {
       if (argumentCount != 0) {
-        error =
-            "Function $identifier() takes 0 arguments, $argumentCount given.";
+        error = "Function $name() takes 0 arguments, $argumentCount given.";
         return null;
       }
       return NullaryLambdaExecutionNode(nullaryFunction);
@@ -123,8 +146,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     if (unaryFunction != null) {
       if (node.children.length != 1) {
         var argumentCount = node.children.length;
-        error =
-            "Function $identifier() takes 1 argument, $argumentCount given.";
+        error = "Function $name() takes 1 argument, $argumentCount given.";
         return null;
       }
       return UnaryLambdaExecutionNode(
@@ -135,8 +157,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
 
     if (binaryFunction != null) {
       if (argumentCount != 2) {
-        error =
-            "Function $identifier() takes 2 arguments, $argumentCount given.";
+        error = "Function $name() takes 2 arguments, $argumentCount given.";
         return null;
       }
 
@@ -146,7 +167,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
         Engine.createExecutionNode(arguments[1])!,
       );
     }
-    error = 'Unidentified identifier "$identifier" used as a function.';
+    error = 'Unidentified identifier "$name" used as a function.';
     return null;
   }
 

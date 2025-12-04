@@ -17,7 +17,6 @@ import 'package:awesome_calculator/shql/execution/constant_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
-import 'package:awesome_calculator/shql/execution/lambdas/function_definition_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/map_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
@@ -162,17 +161,22 @@ class Engine {
     return constantsSet;
   }
 
-  static Runtime prepareRuntime(ConstantsSet? constantsSet) {
-    var runtime = constantsSet != null
-        ? Runtime(
-            constantsSet: constantsSet,
-            unaryFunctions: unaryFunctions,
-            binaryFunctions: binaryFunctions,
-          )
-        : Runtime(
-            unaryFunctions: unaryFunctions,
-            binaryFunctions: binaryFunctions,
-          );
+  static Runtime prepareRuntime(ConstantsSet constantsSet) {
+    final unaryFns = <int, Function(dynamic p1)>{};
+    for (final entry in unaryFunctions.entries) {
+      unaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
+    }
+
+    final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
+    for (final entry in binaryFunctions.entries) {
+      binaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
+    }
+
+    var runtime = Runtime(
+      constantsSet: constantsSet,
+      unaryFunctions: unaryFns,
+      binaryFunctions: binaryFns,
+    );
     return runtime;
   }
 
@@ -289,7 +293,7 @@ class Engine {
   static ExecutionNode? tryCreateTerminalExecutionNode(ParseTree parseTree) {
     switch (parseTree.symbol) {
       case Symbols.list:
-        return ListLiteralNode(parseTree);      
+        return ListLiteralNode(parseTree);
       case Symbols.tuple:
         return TupleLiteralNode(parseTree);
       case Symbols.map:

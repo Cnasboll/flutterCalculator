@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parser.dart';

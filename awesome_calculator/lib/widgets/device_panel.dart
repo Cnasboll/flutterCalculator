@@ -342,20 +342,22 @@ class _AncientComputerState extends State<AncientComputer>
     }
 
     Engine.calculate(
-      currentInput,
-      runtime: runtime.readOnlyChild(),
-      constantsSet: constantsSet,
-    ).then((result) {
-      if (!mounted) return;
-      final (formatted, padding) = _formatResult(result);
-      setState(() {
-        _displayValue = formatted.padLeft(maxWheels, padding);
-      });
-    }).catchError((e) {
-      // Keep previous valid result
-      if (!mounted) return;
-      print(e);
-    });
+          currentInput,
+          runtime: runtime.readOnlyChild(),
+          constantsSet: constantsSet,
+        )
+        .then((result) {
+          if (!mounted) return;
+          final (formatted, padding) = _formatResult(result);
+          setState(() {
+            _displayValue = formatted.padLeft(maxWheels, padding);
+          });
+        })
+        .catchError((e) {
+          // Keep previous valid result
+          if (!mounted) return;
+          print(e);
+        });
   }
 
   /// Handle up arrow: command history on last line, cursor movement otherwise
@@ -504,19 +506,21 @@ class _AncientComputerState extends State<AncientComputer>
               _currentInput = '';
 
               Engine.execute(
-                currentInput,
-                runtime: runtime,
-                constantsSet: constantsSet,
-              ).then((result) {
-                if (!mounted) return;
-                final (formatted, padding) = _formatResult(result);
-                terminalPrint(formatted);
-                showPrompt();
-              }).catchError((e) {
-                if (!mounted) return;
-                terminalPrint(e.toString());
-                showPrompt();
-              });
+                    currentInput,
+                    runtime: runtime,
+                    constantsSet: constantsSet,
+                  )
+                  .then((result) {
+                    if (!mounted) return;
+                    final (formatted, padding) = _formatResult(result);
+                    terminalPrint(formatted);
+                    showPrompt();
+                  })
+                  .catchError((e) {
+                    if (!mounted) return;
+                    terminalPrint(e.toString());
+                    showPrompt();
+                  });
             } else {
               showPrompt();
             }
