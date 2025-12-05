@@ -142,6 +142,38 @@ class Parser {
       );
     }
 
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.ifStatement)) {
+      var children = <ParseTree>[
+        parseExpression(tokenEnumerator, constantsSet),
+      ];
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.thenKeyword)) {
+        return (null, 'Expected THEN after IF condition.');
+      }
+
+      children.add(parse(tokenEnumerator, constantsSet));
+
+      if (tryConsumeSymbol(tokenEnumerator, Symbols.elseKeyword)) {
+        children.add(parse(tokenEnumerator, constantsSet));
+      }
+
+      return (ParseTree(Symbols.ifStatement, children), null);
+    }
+
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.whileLoop)) {
+      var children = <ParseTree>[
+        parseExpression(tokenEnumerator, constantsSet),
+      ];
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.doKeyword)) {
+        return (null, 'Expected DO after WHILE condition.');
+      }
+
+      children.add(parse(tokenEnumerator, constantsSet));
+
+      return (ParseTree(Symbols.whileLoop, children), null);
+    }
+
     if (tryConsumeTokenType(tokenEnumerator, TokenTypes.identifier)) {
       String identifierName = tokenEnumerator.current.lexeme;
       var brackets = tryParseBrackets(tokenEnumerator, constantsSet);

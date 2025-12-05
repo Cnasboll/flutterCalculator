@@ -12,9 +12,6 @@ class UserFunction {
 class _Scope {
   final Map<int, dynamic> variables = {};
   final Map<int, UserFunction> userFunctions = {};
-  final bool isReadOnly;
-
-  _Scope({this.isReadOnly = false});
 }
 
 class Runtime {
@@ -25,6 +22,7 @@ class Runtime {
   late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
   final List<_Scope> _scopeStack = [];
   final Map<int, Runtime> _subModelScopes = {};
+  bool _readonly = false;
 
   Function(dynamic value)? printFunction;
   Future<String> Function()? readlineFunction;
@@ -43,16 +41,17 @@ class Runtime {
     hookUpConsole();
   }
 
-  Runtime._shallowCopy(Runtime other) {
+  Runtime._readOnlyCopy(Runtime other) {
     _constants = other._constants;
     _identifiers = other._identifiers;
     _nullaryFunctions.addAll(other._nullaryFunctions);
     _unaryFunctions = other._unaryFunctions;
     _binaryFunctions = other._binaryFunctions;
-    _scopeStack.addAll(other._scopeStack);
+    _scopeStack.add(other._scopeStack.first);
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
+    _readonly = true;
   }
 
   Runtime._subModel(Runtime parent) {
@@ -69,16 +68,14 @@ class Runtime {
     return _identifiers;
   }
 
-  (bool, String?) pushScope({bool readOnly = false}) {
-    final isCurrentScopeReadOnly =
-        _scopeStack.isNotEmpty && _scopeStack.last.isReadOnly;
+  (bool, String?) pushScope() {
     if (_scopeStack.length >= 100) {
       return (
         false,
         'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
       );
     }
-    _scopeStack.add(_Scope(isReadOnly: readOnly || isCurrentScopeReadOnly));
+    _scopeStack.add(_Scope());
     return (true, null);
   }
 
@@ -89,8 +86,7 @@ class Runtime {
   }
 
   Runtime readOnlyChild() {
-    final child = Runtime._shallowCopy(this);
-    child.pushScope(readOnly: true);
+    final child = Runtime._readOnlyCopy(this);
     return child;
   }
 
@@ -117,7 +113,6 @@ class Runtime {
     // Try to find the variable in existing scopes to update it.
     for (final scope in _scopeStack.reversed) {
       if (scope.variables.containsKey(identifier)) {
-        if (scope.isReadOnly) return;
         scope.variables[identifier] = value;
         return;
       }
@@ -250,5 +245,5 @@ class Runtime {
     setNullaryFunction("READLINE", readLine);
   }
 
-  bool get readonly => _scopeStack.isNotEmpty && _scopeStack.last.isReadOnly;
+  bool get readonly => _readonly;
 }

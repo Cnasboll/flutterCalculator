@@ -17,6 +17,7 @@ import 'package:awesome_calculator/shql/execution/constant_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
+import 'package:awesome_calculator/shql/execution/if_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/map_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
@@ -31,6 +32,7 @@ import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_
 import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
+import 'package:awesome_calculator/shql/execution/while_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
@@ -230,6 +232,16 @@ class Engine {
       return executionNode;
     }
 
+    executionNode = tryCreateIfStatementExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateWhileLoopExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
     if (parseTree.children.length < 2) {
       return AprioriExecutionNode(double.nan);
     }
@@ -343,6 +355,20 @@ class Engine {
       default:
         return null;
     }
+  }
+
+  static ExecutionNode? tryCreateIfStatementExecutionNode(ParseTree parseTree) {
+    if (parseTree.symbol != Symbols.ifStatement) {
+      return null;
+    }
+    return IfStatementExecutionNode(parseTree);
+  }
+
+  static ExecutionNode? tryCreateWhileLoopExecutionNode(ParseTree parseTree) {
+    if (parseTree.symbol != Symbols.whileLoop) {
+      return null;
+    }
+    return WhileLoopExecutionNode(parseTree);
   }
 
   static final Map<String, int> _intConstants = {
