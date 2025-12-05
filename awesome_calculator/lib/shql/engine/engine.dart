@@ -66,7 +66,7 @@ class Engine {
       if (p.isNotEmpty) {
         if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
           throw RuntimeException(
-            'Unexpcted token "${tokenEnumerator.next().lexeme}" after parsing expression.',
+            'Unexpected token "${tokenEnumerator.next().lexeme}" after parsing expression.',
           );
         }
         // Consume the semicolon

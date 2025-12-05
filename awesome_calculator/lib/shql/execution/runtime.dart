@@ -45,12 +45,13 @@ class Runtime {
     _constants = other._constants;
     _identifiers = other._identifiers;
     _nullaryFunctions.addAll(other._nullaryFunctions);
-    _unaryFunctions = other._unaryFunctions;
-    _binaryFunctions = other._binaryFunctions;
+    _unaryFunctions = Map.from(other._unaryFunctions);
+    _binaryFunctions = Map.from(other._binaryFunctions);
     _scopeStack.add(other._scopeStack.first);
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
+    hookUpConsole();
     _readonly = true;
   }
 
