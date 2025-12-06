@@ -86,6 +86,62 @@ class GraphPainter extends CustomPainter {
       }
 
       canvas.drawPath(path, plotPaint);
+
+      // Draw rulers
+      _drawRuler(canvas, size, minX, maxX, true, axisPaint);
+      _drawRuler(canvas, size, minY, maxY, false, axisPaint);
+    }
+  }
+
+  void _drawRuler(
+    Canvas canvas,
+    Size size,
+    double minVal,
+    double maxVal,
+    bool isXAxis,
+    Paint axisPaint,
+  ) {
+    const tickCount = 5;
+    final range = maxVal - minVal;
+    if (range == 0) return;
+
+    final textStyle = TextStyle(
+      color: Colors.green.withOpacity(0.8),
+      fontSize: 10,
+    );
+
+    for (int i = 0; i <= tickCount; i++) {
+      final double value = minVal + (range * i / tickCount);
+      final double normalizedValue = i / tickCount;
+
+      final textPainter = TextPainter(
+        text: TextSpan(text: value.toStringAsFixed(1), style: textStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      if (isXAxis) {
+        final x = normalizedValue * size.width;
+        canvas.drawLine(
+          Offset(x, size.height / 2 - 5),
+          Offset(x, size.height / 2 + 5),
+          axisPaint,
+        );
+        textPainter.paint(
+          canvas,
+          Offset(x - textPainter.width / 2, size.height / 2 + 8),
+        );
+      } else {
+        final y = size.height - (normalizedValue * size.height);
+        canvas.drawLine(
+          Offset(size.width / 2 - 5, y),
+          Offset(size.width / 2 + 5, y),
+          axisPaint,
+        );
+        textPainter.paint(
+          canvas,
+          Offset(size.width / 2 + 8, y - textPainter.height / 2),
+        );
+      }
     }
   }
 
