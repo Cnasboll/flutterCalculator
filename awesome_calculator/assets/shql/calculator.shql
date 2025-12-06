@@ -11,7 +11,6 @@ funcs:=[add, sub, mul, div, gcd, lcm];
 
 print("Welcome to Calculator 1.0");
 
-finished:=false;
 while true do begin
     print("Please select a function:\nEnter:\n1 for 'addition',\n2 for 'subtraction',\n3 for 'muliplication',\n4 for 'division',\n5 for 'greatest common divisor',\n6 for 'least common multiple' or 'Q' to quit");
     input := readline();
