@@ -6,12 +6,12 @@ abstract class BooleanExecutionNode extends ExecutionNode {
 
   @override
   Future<bool> doTick(Runtime runtime) async {
-    if (await lhs.tick(runtime)) {
+    if (await tickChild(lhs, runtime)) {
       var lhsResult = lhs.result is bool ? lhs.result : lhs.result != 0;
       if (shortCircuit(lhsResult)) {
         return true;
       }
-      if (!await rhs.tick(runtime)) {
+      if (!await tickChild(rhs, runtime)) {
         return false;
       }
 

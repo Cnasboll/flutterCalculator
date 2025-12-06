@@ -13,7 +13,7 @@ class WhileLoopExecutionNode extends LazyExecutionNode {
   Future<bool> doTick(Runtime runtime) async {
     if (_bodyNode == null) {
       _conditionNode ??= Engine.createExecutionNode(node.children[0]);
-      if (!await _conditionNode!.tick(runtime)) {
+      if (!await tickChild(_conditionNode!, runtime)) {
         return false;
       }
 
@@ -24,10 +24,9 @@ class WhileLoopExecutionNode extends LazyExecutionNode {
       _bodyNode = Engine.createExecutionNode(node.children[1]);
     }
 
-    if (!await _bodyNode!.tick(runtime)) {
+    if (!await tickChild(_bodyNode!, runtime)) {
       return false;
     }
-    result = _bodyNode!.result;
     _bodyNode = null;
     _conditionNode = null;
     return false;

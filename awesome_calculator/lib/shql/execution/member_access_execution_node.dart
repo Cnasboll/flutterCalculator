@@ -46,14 +46,8 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
     }
 
     // Tick the right node until complete
-    while (!await rightNode.tick(targetScope)) {}
+    while (!await tickChild(rightNode, targetScope)) {}
 
-    if (rightNode.error != null) {
-      error = rightNode.error;
-      return true;
-    }
-
-    result = rightNode.result;
     return true;
   }
 

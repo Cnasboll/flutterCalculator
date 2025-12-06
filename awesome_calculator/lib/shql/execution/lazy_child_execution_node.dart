@@ -15,10 +15,9 @@ abstract class LazyChildExecutionNode extends LazyExecutionNode {
     if (_child == null) {
       return true;
     }
-    if (!await child.tick(runtime)) {
+    if (!await tickChild(_child!, runtime)) {
       return false;
     }
-    result = child.result;
     return true;
   }
 

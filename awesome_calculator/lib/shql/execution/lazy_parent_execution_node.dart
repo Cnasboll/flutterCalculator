@@ -13,7 +13,7 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
       for (var child in node.children) {
         var childRuntime = Engine.createExecutionNode(child);
         if (childRuntime == null) {
-          error = 'Failed to create runtime for child node.';
+          error = 'Failed to create execution node for child node.';
           return true;
         }
 
@@ -22,10 +22,12 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
       children = r;
     }
 
-    for (var child in children!) {
-      if (!await child.tick(runtime)) {
+    while (_currentChildIndex < children!.length) {
+      var child = children![_currentChildIndex];
+      if (!await tickChild(child, runtime)) {
         return false;
       }
+      ++_currentChildIndex;
     }
     onChildrenComplete();
     return true;
@@ -34,4 +36,5 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
   void onChildrenComplete();
 
   List<ExecutionNode>? children;
+  int _currentChildIndex = 0;
 }

@@ -12,15 +12,14 @@ class IfStatementExecutionNode extends LazyExecutionNode {
   @override
   Future<bool> doTick(Runtime runtime) async {
     if (_branchNode != null) {
-      if (!await _branchNode!.tick(runtime)) {
+      if (!await tickChild(_branchNode!, runtime)) {
         return false;
       }
-      result = _branchNode!.result;
       return true;
     }
 
     _conditionNode ??= Engine.createExecutionNode(node.children[0]);
-    if (!await _conditionNode!.tick(runtime)) {
+    if (!await tickChild(_conditionNode!, runtime)) {
       return false;
     }
 
@@ -31,13 +30,12 @@ class IfStatementExecutionNode extends LazyExecutionNode {
       // Else branch
       _branchNode = Engine.createExecutionNode(node.children[2]);
     } else {
-      result = null;
+      result = false;
       return true;
     }
-    if (!await _branchNode!.tick(runtime)) {
+    if (!await tickChild(_branchNode!, runtime)) {
       return false;
     }
-    result = _branchNode!.result;
     return true;
   }
 }

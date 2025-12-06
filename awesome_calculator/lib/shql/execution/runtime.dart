@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
@@ -245,6 +247,83 @@ class Runtime {
     setUnaryFunction("PRINT", print);
     setNullaryFunction("READLINE", readLine);
   }
+
+    static ConstantsSet prepareConstantsSet() {
+    var constantsSet = ConstantsSet();
+    // Register mathematical constants
+    for (var entry in allConstants.entries) {
+      constantsSet.registerConstant(
+        entry.value,
+        constantsSet.includeIdentifier(entry.key),
+      );
+    }
+
+    // Register mathematical functions
+    for (var entry in unaryFunctions.entries) {
+      constantsSet.includeIdentifier(entry.key);
+    }
+    for (var entry in binaryFunctions.entries) {
+      constantsSet.includeIdentifier(entry.key);
+    }
+    return constantsSet;
+  }
+
+  static Runtime prepareRuntime([ConstantsSet? constantsSet]) {
+    constantsSet ??= prepareConstantsSet();
+    final unaryFns = <int, Function(dynamic p1)>{};
+    for (final entry in unaryFunctions.entries) {
+      unaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
+    }
+
+    final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
+    for (final entry in binaryFunctions.entries) {
+      binaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
+    }
+
+    var runtime = Runtime(
+      constantsSet: constantsSet,
+      unaryFunctions: unaryFns,
+      binaryFunctions: binaryFns,
+    );
+    return runtime;
+  }
+
+  static final Map<String, dynamic> allConstants = {
+    "ANSWER": 42,
+    "TRUE": true,
+    "FALSE": false,
+    "E": e,
+    "LN10": ln10,
+    "LN2": ln2,
+    "LOG2E": log2e,
+    "LOG10E": log10e,
+    "PI": pi,
+    "SQRT1_2": sqrt1_2,
+    "SQRT2": sqrt2,
+    "AVOGADRO": 6.0221408e+23,
+  };
+
+  static final Map<String, dynamic Function(dynamic)> unaryFunctions = {
+    "SIN": (a) => sin(a),
+    "COS": (a) => cos(a),
+    "TAN": (a) => tan(a),
+    "ACOS": (a) => acos(a),
+    "ASIN": (a) => asin(a),
+    "ATAN": (a) => atan(a),
+    "SQRT": (a) => sqrt(a),
+    "EXP": (a) => exp(a),
+    "LOG": (a) => log(a),
+    "LOWERCASE": (a) => a.toString().toLowerCase(),
+    "UPPERCASE": (a) => a.toString().toUpperCase(),
+  };
+
+  static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =
+      {
+        "MIN": (a, b) => min(a, b),
+        "MAX": (a, b) => max(a, b),
+        "ATAN2": (a, b) => atan2(a, b),
+        "POW": (a, b) => pow(a, b),
+      };
 
   bool get readonly => _readonly;
 }

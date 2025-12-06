@@ -1,5 +1,6 @@
 enum Symbols {
   none,
+  program,
   //Operators:
   memberAccess,
   colon,

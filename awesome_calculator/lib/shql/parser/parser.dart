@@ -3,6 +3,7 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/tokenizer/string_escaper.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
+import 'package:awesome_calculator/shql/tokenizer/tokenizer.dart';
 
 class ParseException implements Exception {
   final String message;
@@ -14,11 +15,29 @@ class ParseException implements Exception {
 }
 
 class Parser {
-  static ParseTree parse(
-    LookaheadIterator<Token> tokenEnumerator,
-    ConstantsSet constantsSet,
-  ) {
-    return parseExpression(tokenEnumerator, constantsSet);
+  static ParseTree parse(String code, ConstantsSet constantsSet) {
+    var v = Tokenizer.tokenize(code).toList();
+    var tokenEnumerator = v.lookahead();
+    List<ParseTree> statements = [];
+    while (tokenEnumerator.hasNext) {
+      if (statements.isNotEmpty) {
+        if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
+          throw ParseException(
+            'Unexpected token "${tokenEnumerator.next().lexeme}" after parsing expression.',
+          );
+        }
+        // Consume the semicolon
+        tokenEnumerator.next();
+      }
+
+      if (!tokenEnumerator.hasNext) {
+        break;
+      }
+      statements.add(parseExpression(tokenEnumerator, constantsSet));
+    }
+    return statements.length == 1
+        ? statements[0]
+        : ParseTree(Symbols.program, statements);
   }
 
   static ParseTree parseExpression(
@@ -151,10 +170,10 @@ class Parser {
         return (null, 'Expected THEN after IF condition.');
       }
 
-      children.add(parse(tokenEnumerator, constantsSet));
+      children.add(parseExpression(tokenEnumerator, constantsSet));
 
       if (tryConsumeSymbol(tokenEnumerator, Symbols.elseKeyword)) {
-        children.add(parse(tokenEnumerator, constantsSet));
+        children.add(parseExpression(tokenEnumerator, constantsSet));
       }
 
       return (ParseTree(Symbols.ifStatement, children), null);
@@ -169,7 +188,7 @@ class Parser {
         return (null, 'Expected DO after WHILE condition.');
       }
 
-      children.add(parse(tokenEnumerator, constantsSet));
+      children.add(parseExpression(tokenEnumerator, constantsSet));
 
       return (ParseTree(Symbols.whileLoop, children), null);
     }
@@ -288,7 +307,7 @@ class Parser {
     }
 
     for (;;) {
-      arguments.add(parse(tokenEnumerator, constantsSet));
+      arguments.add(parseExpression(tokenEnumerator, constantsSet));
 
       if (!tokenEnumerator.hasNext) {
         throw ParseException(

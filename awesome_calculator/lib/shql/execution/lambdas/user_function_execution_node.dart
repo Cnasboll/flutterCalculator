@@ -19,7 +19,7 @@ class UserFunctionExecutionNode extends ExecutionNode {
     if (!_scopePushed) {
       // Tick current argument nodes
       while (_argumentIndex < arguments.length) {
-        if (!await arguments[_argumentIndex].tick(runtime)) {
+        if (!await tickChild(arguments[_argumentIndex], runtime)) {
           return false;
         }
         ++_argumentIndex;
@@ -38,11 +38,10 @@ class UserFunctionExecutionNode extends ExecutionNode {
       _scopePushed = true;
     }
     // Tick the body
-    if (!await body.tick(runtime)) {
+    if (!await tickChild(body, runtime)) {
       return false;
     }
 
-    result = body.result;
     runtime.popScope();
     return true;
   }

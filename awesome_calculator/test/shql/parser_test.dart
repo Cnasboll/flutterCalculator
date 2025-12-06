@@ -9,7 +9,7 @@ void main() {
   test('Parse addition', () {
     var v = Tokenizer.tokenize('10+2').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children[0].symbol, Symbols.integerLiteral);
     expect(constantsSet.getConstantByIndex(p.children[0].qualifier!), 10);
@@ -20,7 +20,7 @@ void main() {
   test('Parse addition and multiplication', () {
     var v = Tokenizer.tokenize('10+13*37+1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children[0].symbol, Symbols.add);
     expect(p.children[0].children[0].symbol, Symbols.integerLiteral);
@@ -56,7 +56,7 @@ void main() {
   test('Parse addition and multiplication with parenthesis', () {
     var v = Tokenizer.tokenize('10+13*(37+1)').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children[0].symbol, Symbols.integerLiteral);
     expect(constantsSet.getConstantByIndex(p.children[0].qualifier!), 10);
@@ -92,7 +92,7 @@ void main() {
   test('Parse addition, multiplication and subtraction', () {
     var v = Tokenizer.tokenize('10+13*37-1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.sub);
     expect(p.children[0].symbol, Symbols.add);
     expect(p.children[0].children[0].symbol, Symbols.integerLiteral);
@@ -128,7 +128,7 @@ void main() {
   test('Parse function call', () {
     var v = Tokenizer.tokenize('f()').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.identifier);
     expect(p.children.length, 1);
     expect(p.children[0].symbol, Symbols.tuple);
@@ -138,7 +138,7 @@ void main() {
   test('Parse function call followed by operator', () {
     var v = Tokenizer.tokenize('f()+1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children.length, 2);
   });
@@ -146,7 +146,7 @@ void main() {
   test('Parse function call with 1 arg', () {
     var v = Tokenizer.tokenize('f(1)').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.identifier);
     expect(p.children.length, 1);
   });
@@ -154,7 +154,7 @@ void main() {
   test('Parse function call with 1 arg followed by operator', () {
     var v = Tokenizer.tokenize('f(1)+1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children.length, 2);
   });
@@ -164,7 +164,7 @@ void main() {
     () {
       var v = Tokenizer.tokenize('f(1*2, 2)+1').toList();
       var constantsSet = ConstantsSet();
-      var p = Parser.parse(v.lookahead(), constantsSet);
+      var p = Parser.parseExpression(v.lookahead(), constantsSet);
       expect(p.symbol, Symbols.add);
       expect(p.children.length, 2);
     },
@@ -173,7 +173,7 @@ void main() {
   test('Parse empty list', () {
     var v = Tokenizer.tokenize('[]').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.list);
     expect(p.children.isEmpty, true);
   });
@@ -181,7 +181,7 @@ void main() {
   test('Parse empty list followed by operator', () {
     var v = Tokenizer.tokenize('[]+1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children.length, 2);
     var list = p.children[0];
@@ -192,7 +192,7 @@ void main() {
   test('Parse list of one element ', () {
     var v = Tokenizer.tokenize('[1]').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.list);
     expect(p.children.length, 1);
   });
@@ -200,7 +200,7 @@ void main() {
   test('Parse list of one element followed by operator', () {
     var v = Tokenizer.tokenize('[1]+1').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children.length, 2);
     var list = p.children[0];
@@ -213,7 +213,7 @@ void main() {
     () {
       var v = Tokenizer.tokenize('[1*2, 2]+1').toList();
       var constantsSet = ConstantsSet();
-      var p = Parser.parse(v.lookahead(), constantsSet);
+      var p = Parser.parseExpression(v.lookahead(), constantsSet);
       expect(p.symbol, Symbols.add);
       expect(p.children.length, 2);
       var list = p.children[0];
@@ -225,7 +225,7 @@ void main() {
   test('Parse list membership', () {
     var v = Tokenizer.tokenize('2 IN [1, 2]').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.inOp);
     expect(p.children.length, 2);
     var list = p.children[1];
@@ -236,7 +236,7 @@ void main() {
   test('Parse list membership lowercase', () {
     var v = Tokenizer.tokenize('2 in [1, 2]').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.inOp);
     expect(p.children.length, 2);
     var list = p.children[1];
@@ -246,7 +246,7 @@ void main() {
   test('Parse member access', () {
     var v = Tokenizer.tokenize('powerstats.strength').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.memberAccess);
     expect(p.children.length, 2);
     var powerstats = p.children[0];

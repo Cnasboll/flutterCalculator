@@ -1,5 +1,4 @@
 import 'dart:core';
-import 'dart:math';
 
 import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/addition_execution_node.dart';
@@ -24,6 +23,7 @@ import 'package:awesome_calculator/shql/execution/member_access_execution_node.d
 import 'package:awesome_calculator/shql/execution/pattern/in_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/pattern/match_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/pattern/not_match_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/program_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/equality_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/greater_than_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/greater_than_or_equal_execution_node.dart';
@@ -34,11 +34,9 @@ import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/while_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
-import 'package:awesome_calculator/shql/parser/lookahead_iterator.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/parser/parser.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
-import 'package:awesome_calculator/shql/tokenizer/tokenizer.dart';
 
 class RuntimeException implements Exception {
   final String message;
@@ -51,45 +49,16 @@ class RuntimeException implements Exception {
 
 class Engine {
   static Future<dynamic> execute(
-    String expression, {
+    String code, {
     Runtime? runtime,
     ConstantsSet? constantsSet,
   }) async {
-    var v = Tokenizer.tokenize(expression).toList();
-    constantsSet ??= prepareConstantsSet();
-    runtime ??= prepareRuntime(constantsSet);
+    constantsSet ??= Runtime.prepareConstantsSet();
+    runtime ??= Runtime.prepareRuntime(constantsSet);
 
-    var tokenEnumerator = v.lookahead();
+    var program = Parser.parse(code, constantsSet);
 
-    List<ParseTree> p = [];
-    while (tokenEnumerator.hasNext) {
-      if (p.isNotEmpty) {
-        if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
-          throw RuntimeException(
-            'Unexpected token "${tokenEnumerator.next().lexeme}" after parsing expression.',
-          );
-        }
-        // Consume the semicolon
-        tokenEnumerator.next();
-      }
-
-      if (!tokenEnumerator.hasNext) {
-        break;
-      }
-      p.add(Parser.parse(tokenEnumerator, constantsSet));
-    }
-    switch (p.length) {
-      case 0:
-        return null;
-      case 1:
-        return await evaluate(p.first, runtime);
-      default:
-        dynamic lastResult;
-        for (var tree in p) {
-          lastResult = await evaluate(tree, runtime);
-        }
-        return lastResult;
-    }
+    return await evaluate(program, runtime);
   }
 
   static Future<dynamic> calculate(
@@ -97,89 +66,17 @@ class Engine {
     Runtime? runtime,
     ConstantsSet? constantsSet,
   }) async {
-    var v = Tokenizer.tokenize(expression).toList();
-    constantsSet ??= prepareConstantsSet();
-    runtime ??= prepareRuntime(constantsSet);
+    constantsSet ??= Runtime.prepareConstantsSet();
+    runtime ??= Runtime.prepareRuntime(constantsSet);
 
-    var tokenEnumerator = v.lookahead();
+    var program = Parser.parse(expression, constantsSet);
 
-    List<ParseTree> p = [];
-    while (tokenEnumerator.hasNext) {
-      if (p.isNotEmpty) {
-        if (tokenEnumerator.peek().tokenType != TokenTypes.semiColon) {
-          return null;
-        }
-        // Consume the semicolon
-        tokenEnumerator.next();
-      }
-
-      if (!tokenEnumerator.hasNext) {
-        break;
-      }
-      p.add(Parser.parse(tokenEnumerator, constantsSet));
-    }
-
-    (dynamic, bool) result = (null, false);
-
-    switch (p.length) {
-      case 0:
-        break;
-      case 1:
-        result = await preview(p.first, runtime);
-      default:
-        for (var tree in p) {
-          result = await preview(tree, runtime);
-        }
-    }
+    var result = await preview(program, runtime);
 
     if (result.$2 == false) {
       return null;
     }
     return result.$1;
-  }
-
-  static ConstantsSet prepareConstantsSet() {
-    var constantsSet = ConstantsSet();
-    // Register mathematical constants
-    for (var entry in _intConstants.entries) {
-      constantsSet.registerConstant(
-        entry.value,
-        constantsSet.includeIdentifier(entry.key),
-      );
-    }
-    for (var entry in _doubleConstants.entries) {
-      constantsSet.registerConstant(
-        entry.value,
-        constantsSet.includeIdentifier(entry.key),
-      );
-    }
-    // Register mathematical functions
-    for (var entry in unaryFunctions.entries) {
-      constantsSet.includeIdentifier(entry.key);
-    }
-    for (var entry in binaryFunctions.entries) {
-      constantsSet.includeIdentifier(entry.key);
-    }
-    return constantsSet;
-  }
-
-  static Runtime prepareRuntime(ConstantsSet constantsSet) {
-    final unaryFns = <int, Function(dynamic p1)>{};
-    for (final entry in unaryFunctions.entries) {
-      unaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }
-
-    final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
-    for (final entry in binaryFunctions.entries) {
-      binaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }
-
-    var runtime = Runtime(
-      constantsSet: constantsSet,
-      unaryFunctions: unaryFns,
-      binaryFunctions: binaryFns,
-    );
-    return runtime;
   }
 
   static Future<dynamic> evaluate(ParseTree parseTree, Runtime runtime) async {
@@ -222,7 +119,12 @@ class Engine {
       return AprioriExecutionNode(null);
     }
 
-    var executionNode = tryCreateTerminalExecutionNode(parseTree);
+    var executionNode = tryCreateProgramExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateTerminalExecutionNode(parseTree);
     if (executionNode != null) {
       return executionNode;
     }
@@ -302,6 +204,13 @@ class Engine {
     }
   }
 
+  static ExecutionNode? tryCreateProgramExecutionNode(ParseTree parseTree) {
+    if (parseTree.symbol != Symbols.program) {
+      return null;
+    }
+    return ProgramExecutionNode(parseTree);
+  }
+
   static ExecutionNode? tryCreateTerminalExecutionNode(ParseTree parseTree) {
     switch (parseTree.symbol) {
       case Symbols.list:
@@ -370,44 +279,4 @@ class Engine {
     }
     return WhileLoopExecutionNode(parseTree);
   }
-
-  static final Map<String, int> _intConstants = {
-    "ANSWER": 42,
-    "TRUE": 1,
-    "FALSE": 0,
-  };
-
-  static final Map<String, double> _doubleConstants = {
-    "E": e,
-    "LN10": ln10,
-    "LN2": ln2,
-    "LOG2E": log2e,
-    "LOG10E": log10e,
-    "PI": pi,
-    "SQRT1_2": sqrt1_2,
-    "SQRT2": sqrt2,
-    "AVOGADRO": 6.0221408e+23,
-  };
-
-  static final Map<String, dynamic Function(dynamic)> unaryFunctions = {
-    "SIN": (a) => sin(a),
-    "COS": (a) => cos(a),
-    "TAN": (a) => tan(a),
-    "ACOS": (a) => acos(a),
-    "ASIN": (a) => asin(a),
-    "ATAN": (a) => atan(a),
-    "SQRT": (a) => sqrt(a),
-    "EXP": (a) => exp(a),
-    "LOG": (a) => log(a),
-    "LOWERCASE": (a) => a.toString().toLowerCase(),
-    "UPPERCASE": (a) => a.toString().toUpperCase(),
-  };
-
-  static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =
-      {
-        "MIN": (a, b) => min(a, b),
-        "MAX": (a, b) => max(a, b),
-        "ATAN2": (a, b) => atan2(a, b),
-        "POW": (a, b) => pow(a, b),
-      };
 }

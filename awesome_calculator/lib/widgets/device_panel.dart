@@ -90,8 +90,8 @@ class _AncientComputerState extends State<AncientComputer>
 
   void resetEngine() {
     setState(() {
-      constantsSet = Engine.prepareConstantsSet();
-      runtime = Engine.prepareRuntime(constantsSet);
+      constantsSet = Runtime.prepareConstantsSet();
+      runtime = Runtime.prepareRuntime(constantsSet);
       runtime.readlineFunction = () async => await readline();
 
       runtime.printFunction = (p1) => terminalPrint(p1.toString());

@@ -11,7 +11,7 @@ void main() {
   test('Parse addition', () {
     var v = Tokenizer.tokenize('10+2').toList();
     var constantsSet = ConstantsSet();
-    var p = Parser.parse(v.lookahead(), constantsSet);
+    var p = Parser.parseExpression(v.lookahead(), constantsSet);
     expect(p.symbol, Symbols.add);
     expect(p.children[0].symbol, Symbols.integerLiteral);
     expect(constantsSet.getConstantByIndex(p.children[0].qualifier!), 10);

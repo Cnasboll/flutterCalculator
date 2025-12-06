@@ -22,13 +22,12 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       _rhs = rhs;
     }
 
-    if (!await _rhs!.tick(runtime)) {
+    if (!await tickChild(_rhs!, runtime)) {
       return false;
     }
 
     var identifier = node.children[0].qualifier!;
     runtime.setVariable(identifier, _rhs!.result);
-    result = _rhs!.result;
     return true;
   }
 
