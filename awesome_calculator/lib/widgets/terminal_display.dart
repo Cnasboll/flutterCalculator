@@ -1,4 +1,5 @@
 import 'package:awesome_calculator/widgets/glare.dart';
+import 'package:awesome_calculator/widgets/graph_display.dart';
 import 'package:awesome_calculator/widgets/screen_crack.dart';
 import 'package:flutter/material.dart';
 
@@ -14,6 +15,7 @@ class TerminalDisplay extends StatelessWidget {
   final String promptSymbol;
   final VoidCallback onTapRequest;
   final void Function(int position) onCursorPositionChanged;
+  final List<Offset> plotPoints;
 
   const TerminalDisplay({
     super.key,
@@ -24,6 +26,7 @@ class TerminalDisplay extends StatelessWidget {
     required this.promptSymbol,
     required this.onTapRequest,
     required this.onCursorPositionChanged,
+    required this.plotPoints,
   });
 
   @override
@@ -144,6 +147,8 @@ class TerminalDisplay extends StatelessWidget {
                       },
                     ),
                   ),
+                  if (plotPoints.isNotEmpty)
+                    Positioned.fill(child: GraphDisplay(points: plotPoints)),
                 ],
               ),
             ),

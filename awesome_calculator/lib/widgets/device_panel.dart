@@ -34,6 +34,7 @@ class _AncientComputerState extends State<AncientComputer>
     with SingleTickerProviderStateMixin {
   late CancellationToken _cancellationToken;
   bool _isExecuting = false;
+  List<Offset> _plotPoints = [];
 
   Future<void> _copyAllShqlAssetsToExternalStorage() async {
     try {
@@ -98,13 +99,64 @@ class _AncientComputerState extends State<AncientComputer>
       constantsSet = Runtime.prepareConstantsSet();
       runtime = Runtime.prepareRuntime(constantsSet);
       runtime.readlineFunction = () async => await readline();
-      runtime.promptFunction = (String prompt) async {
-        return await readline(prompt);
-      };
 
       runtime.printFunction = (p1) => terminalPrint(p1.toString());
 
-      // runtime.setNullaryFunction("READLINE", () async => await readline());
+      runtime.clsFunction = () async {
+        setState(() {
+          _plotPoints.clear();
+        });
+      };
+
+      runtime.plotFunction = (xVector, yVector) async {
+        /*if (args.length != 2) {
+          throw Exception(
+              "plot() requires 2 arguments: xVector and yVector");
+        }*/
+
+        /*final shqlFunction = args[0];
+        if (shqlFunction is! UserFunction) {
+          throw Exception("Argument 1 to plot() must be a function");
+        }
+
+        final x1 = (args[1] as num).toDouble();
+        final x2 = (args[2] as num).toDouble();
+        final steps = (args[3] as num).toInt();
+
+        if (steps <= 1) {
+          throw Exception("Plot steps must be greater than 1");
+        }
+
+        final points = <Offset>[];
+        final stepSize = (x2 - x1) / (steps - 1);
+
+        for (int i = 0; i < steps; i++) {
+          final x = x1 + i * stepSize;
+          final y = await shqlFunction.call([x], runtime.child());
+          if (y is num) {
+            points.add(Offset(x, y.toDouble()));
+          }
+        }*/
+
+        final points = <Offset>[];
+        if (xVector is List && yVector is List) {
+          final length = xVector.length < yVector.length
+              ? xVector.length
+              : yVector.length;
+          for (int i = 0; i < length; i++) {
+            final x = xVector[i];
+            final y = yVector[i];
+            if (x is num && y is num) {
+              points.add(Offset(x.toDouble(), y.toDouble()));
+            }
+          }
+        } else {
+          throw Exception("plot() arguments must be lists of numbers");
+        }
+        setState(() {
+          _plotPoints = points;
+        });
+      };
     });
     _printStartupBanner();
   }
@@ -769,6 +821,7 @@ class _AncientComputerState extends State<AncientComputer>
                         _cursorPosition = newPosition;
                       });
                     },
+                    plotPoints: _plotPoints,
                   ),
 
                   // Cash Register Display

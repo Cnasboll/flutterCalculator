@@ -94,6 +94,9 @@ class Runtime {
   Function(dynamic value)? printFunction;
   Future<String> Function()? readlineFunction;
   Future<String> Function(String prompt)? promptFunction;
+  Future<void> Function()? clsFunction;
+  Future<void> Function(dynamic, dynamic)? plotFunction;
+
   int get depth => _scopeStack.length;
 
   Runtime({
@@ -120,6 +123,8 @@ class Runtime {
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
     promptFunction = other.promptFunction;
+    clsFunction = other.clsFunction;
+    plotFunction = other.plotFunction;
     hookUpConsole();
     _readonly = true;
   }
@@ -400,10 +405,27 @@ class Runtime {
     return await readlineFunction?.call() ?? "";
   }
 
+  Future<void> plot(dynamic xVector, dynamic yVector) async {
+    if (readonly) {
+      return;
+    }
+    return await plotFunction?.call(xVector, yVector);
+  }
+
+  Future<void> cls() async {
+    if (readonly) {
+      return;
+    }
+
+    await clsFunction?.call();
+  }
+
   void hookUpConsole() {
     setUnaryFunction("PRINT", print);
     setUnaryFunction("PROMPT", prompt);
     setNullaryFunction("READLINE", readLine);
+    setBinaryFunction("PLOT", plot);
+    setNullaryFunction("CLS", cls);
   }
 
   static ConstantsSet prepareConstantsSet() {
@@ -499,6 +521,15 @@ class Runtime {
     },
     "STRING": (a) => a.toString(),
     "ROUND": (a) => a is double ? a.round() : a,
+    "LENGTH": (a) {
+      if (a is String) {
+        return a.length;
+      }
+      if (a is List) {
+        return a.length;
+      }
+      return 0;
+    },
   };
 
   static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =
@@ -507,6 +538,17 @@ class Runtime {
         "MAX": (a, b) => max(a, b),
         "ATAN2": (a, b) => atan2(a, b),
         "POW": (a, b) => pow(a, b),
+        "DIM": (a, b) {
+          if (a is List && b is num) {
+            while (a.length > b) {
+              a.removeLast();
+            }
+            while (a.length < b) {
+              a.add(0);
+            }
+          }
+          return a;
+        },
       };
 
   bool get readonly => _readonly;
