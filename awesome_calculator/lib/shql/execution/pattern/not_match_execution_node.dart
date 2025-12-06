@@ -4,6 +4,6 @@ class NotMatchExecutionNode extends RegexpExecutionNode {
   NotMatchExecutionNode(super.rhs, super.lhs);
 
   @override
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult) =>
+  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult) async =>
       !matches(lhsResult, rhsResult);
 }

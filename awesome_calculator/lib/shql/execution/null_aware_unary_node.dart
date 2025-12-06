@@ -5,13 +5,13 @@ abstract class NullAwareUnaryNode extends UnaryExecutionNode {
   NullAwareUnaryNode(super.operand);
 
   @override
-  void onChildrenComplete(Runtime runtime) {
+  Future<void> onChildrenComplete(Runtime runtime) async {
     if (operand.result == null) {
       result = null;
       return;
     }
-    result = evaluate(operand.result);
+    result = await evaluate(operand.result);
   }
 
-  dynamic evaluate(dynamic operandResult);
+  Future<dynamic> evaluate(dynamic operandResult);
 }

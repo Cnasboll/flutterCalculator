@@ -6,5 +6,6 @@ class UnaryLambdaExecutionNode extends NullAwareUnaryNode {
   UnaryLambdaExecutionNode(this.unaryFunction, super.operand);
 
   @override
-  dynamic evaluate(dynamic operandResult) => unaryFunction(operandResult);
+  Future<dynamic> evaluate(dynamic operandResult) async =>
+      await unaryFunction(operandResult);
 }

@@ -93,6 +93,7 @@ class Runtime {
 
   Function(dynamic value)? printFunction;
   Future<String> Function()? readlineFunction;
+  Future<String> Function(String prompt)? promptFunction;
   int get depth => _scopeStack.length;
 
   Runtime({
@@ -118,6 +119,7 @@ class Runtime {
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
+    promptFunction = other.promptFunction;
     hookUpConsole();
     _readonly = true;
   }
@@ -382,6 +384,14 @@ class Runtime {
     printFunction?.call(value);
   }
 
+  Future<String> prompt(dynamic prompt) async {
+    if (readonly) {
+      return "";
+    }
+
+    return await promptFunction?.call(prompt) ?? "";
+  }
+
   Future<String> readLine() async {
     if (readonly) {
       return "";
@@ -392,6 +402,7 @@ class Runtime {
 
   void hookUpConsole() {
     setUnaryFunction("PRINT", print);
+    setUnaryFunction("PROMPT", prompt);
     setNullaryFunction("READLINE", readLine);
   }
 

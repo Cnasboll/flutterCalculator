@@ -146,6 +146,14 @@ class Token {
     return _symbol;
   }
 
+  int get lineNumber {
+    return _lineNumber;
+  }
+
+  int get columnNumber {
+    return _columnNumber;
+  }
+
   Token(
     this._lexeme,
     this._tokenType,
@@ -153,9 +161,16 @@ class Token {
     this._literalType,
     this._operatorPrecedence,
     this._symbol,
+    this._lineNumber,
+    this._columnNumber,
   );
 
-  factory Token.parser(TokenTypes tokenType, String lexeme) {
+  factory Token.parser(
+    TokenTypes tokenType,
+    String lexeme,
+    int lineNumber,
+    int columnNumber,
+  ) {
     Keywords keyword = Keywords.none;
     LiteralTypes literalType = LiteralTypes.none;
     Symbols symbol = Symbols.none;
@@ -207,6 +222,8 @@ class Token {
       literalType,
       operatorPrecedence,
       symbol,
+      lineNumber,
+      columnNumber,
     );
   }
 
@@ -474,4 +491,6 @@ class Token {
   final LiteralTypes _literalType;
   final int _operatorPrecedence;
   final Symbols _symbol;
+  final int _lineNumber;
+  final int _columnNumber;
 }

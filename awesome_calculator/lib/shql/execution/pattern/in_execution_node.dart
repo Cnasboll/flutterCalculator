@@ -4,7 +4,7 @@ class InExecutionNode extends NullAwareBinaryNode {
   InExecutionNode(super.lhs, super.rhs);
 
   @override
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult) {
+  Future<bool> evaluate(dynamic lhsResult, dynamic rhsResult) async {
     if (rhsResult is List || rhsResult is Set) {
       return rhsResult.contains(lhsResult);
     }

@@ -6,6 +6,6 @@ class BinaryLambdaExecutionNode extends NullAwareBinaryNode {
   BinaryLambdaExecutionNode(this.binaryFunction, super.lhs, super.rhs);
 
   @override
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult) =>
+  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult) async =>
       binaryFunction(lhsResult, rhsResult);
 }

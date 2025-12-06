@@ -29,14 +29,14 @@ abstract class BooleanExecutionNode extends ExecutionNode {
       }
 
       var rhsResult = rhs.result is bool ? rhs.result : rhs.result != 0;
-      result = evaluate(lhsResult, rhsResult);
+      result = await evaluate(lhsResult, rhsResult);
       return true;
     }
     return false;
   }
 
   bool shortCircuit(bool lhsResult);
-  bool evaluate(bool lhsResult, bool rhsResult);
+  Future<bool> evaluate(bool lhsResult, bool rhsResult);
 
   ExecutionNode lhs;
   ExecutionNode rhs;

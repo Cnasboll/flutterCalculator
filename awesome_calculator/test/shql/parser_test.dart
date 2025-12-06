@@ -259,4 +259,106 @@ void main() {
     expect(strength.symbol, Symbols.identifier);
     expect(strength.qualifier, constantsSet.identifiers.include('STRENGTH'));
   });
+
+  test('Parse large program with comments', () {
+    var program = '''--
+-- calculator.shql
+--
+-- A collection of advanced mathematical functions written in SHQL.
+-- This script demonstrates user-defined recursive functions and basic arithmetic.
+--
+
+add(a,b):=a+b;
+sub(a,b):=a-b;
+mul(a,b):=a*b;
+div(a,b):=a/b;
+
+-- Greatest Common Divisor (GCD)
+-- Calculates the largest positive integer that divides two integers without a remainder.
+-- Uses the Euclidean algorithm for efficiency.
+--
+-- Parameters:
+--   a: The first integer.
+--   b: The second integer.
+--
+-- Returns:
+--   The greatest common divisor of a and b.
+--
+gcd(a, b) := IF b = 0 THEN a ELSE gcd(b, a % b);
+
+--
+-- Least Common Multiple (LCM)
+-- Calculates the smallest positive integer that is a multiple of both a and b.
+-- This is often what is meant by "least common denominator".
+--
+-- Parameters:
+--   a: The first integer.
+--   b: The second integer.
+--
+-- Returns:
+--   The least common multiple of a and b.
+--
+lcm(a, b) := (a * b) / gcd(a, b);
+
+funcs:=[add, sub, mul, div, gcd, lcm];
+
+
+print("Welcome to Calculator 1.0");
+
+while true do begin
+    input := prompt("Please select a function:\nEnter:\n1 for 'addition',\n2 for 'subtraction',\n3 for 'muliplication',\n4 for 'division',\n5 for 'greatest common divisor',\n6 for 'least common multiple' or 'Q' to quit\n:");
+    if uppercase(input) = "Q" then break;
+    index := int(input)-1;
+    if index < 0 or index > 5 then begin
+        print("please enter a number in the range 1 to 5");
+        continue;
+    end;
+    func := funcs[index];
+    input := prompt("Please enter the first number (or q to quit)\n:");
+    if uppercase(input) = "Q" then break;
+    a := if index >= 4 then int(input) else double(input);
+
+    input := prompt("Please enter the second number (or q to quit)\n:");
+    if uppercase(input) = "Q" then break;
+    b := if index >= 4 then int(input) else double(input);
+
+    print("The result is " + string(func(a, b)));
+end''';
+
+    var constantsSet = ConstantsSet();
+    var p = Parser.parse(program, constantsSet);
+    expect(p.symbol, Symbols.program);
+    expect(p.children.isNotEmpty, true);
+  });
+
+  test('Parse long comment', () {
+    var program = '''--
+-- calculator.shql
+--
+-- A collection of advanced mathematical functions written in SHQL.
+-- This script demonstrates user-defined recursive functions and basic arithmetic.
+--
+''';
+
+    var v = Tokenizer.tokenize(program).toList();
+    expect(v.length, 0);
+  });
+
+  test('Parse long comment and symbol', () {
+    var program = '''--
+-- calculator.shql
+--
+-- A collection of advanced mathematical functions written in SHQL.
+-- This script demonstrates user-defined recursive functions and basic arithmetic.
+--
+PI
+''';
+
+    var v = Tokenizer.tokenize(program).toList();
+    expect(v.length, 1);
+    expect(v[0].tokenType, TokenTypes.identifier);
+    expect(v[0].lexeme, 'PI');
+    expect(v[0].lineNumber, 7);
+    expect(v[0].columnNumber, 1);
+  });
 }

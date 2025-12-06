@@ -5,13 +5,13 @@ abstract class NullAwareBinaryNode extends BinaryExecutionNode {
   NullAwareBinaryNode(super.lhs, super.rhs);
 
   @override
-  void onChildrenComplete(Runtime runtime) {
+  Future<void> onChildrenComplete(Runtime runtime) async {
     if (lhs.result == null || rhs.result == null) {
       result = null;
       return;
     }
-    result = evaluate(lhs.result, rhs.result);
+    result = await evaluate(lhs.result, rhs.result);
   }
 
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult);
+  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult);
 }

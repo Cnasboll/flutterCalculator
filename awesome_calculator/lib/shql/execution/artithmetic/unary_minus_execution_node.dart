@@ -4,5 +4,5 @@ class UnaryMinusExecutionNode extends NullAwareUnaryNode {
   UnaryMinusExecutionNode(super.operand);
 
   @override
-  dynamic evaluate(dynamic operandResult) => -operandResult;
+  Future<dynamic> evaluate(dynamic operandResult) async => -operandResult;
 }

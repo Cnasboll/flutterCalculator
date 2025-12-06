@@ -98,6 +98,9 @@ class _AncientComputerState extends State<AncientComputer>
       constantsSet = Runtime.prepareConstantsSet();
       runtime = Runtime.prepareRuntime(constantsSet);
       runtime.readlineFunction = () async => await readline();
+      runtime.promptFunction = (String prompt) async {
+        return await readline(prompt);
+      };
 
       runtime.printFunction = (p1) => terminalPrint(p1.toString());
 

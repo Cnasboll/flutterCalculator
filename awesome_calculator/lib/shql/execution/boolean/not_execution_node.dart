@@ -4,6 +4,6 @@ class NotExecutionNode extends NullAwareUnaryNode {
   NotExecutionNode(super.operand);
 
   @override
-  dynamic evaluate(dynamic operandResult) =>
+  Future<dynamic> evaluate(dynamic operandResult) async =>
       operandResult is bool ? !operandResult : operandResult == 0;
 }

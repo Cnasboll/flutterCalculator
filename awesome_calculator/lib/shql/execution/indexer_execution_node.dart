@@ -4,6 +4,6 @@ class IndexerExecutionNode extends NullAwareBinaryNode {
   IndexerExecutionNode(super.lhs, super.rhs);
 
   @override
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult) =>
+  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult) async =>
       lhsResult[rhsResult];
 }

@@ -9,5 +9,6 @@ class XorExecutionNode extends BooleanExecutionNode {
   }
 
   @override
-  bool evaluate(bool lhsResult, bool rhsResult) => lhsResult ^ rhsResult;
+  Future<bool> evaluate(bool lhsResult, bool rhsResult) async =>
+      lhsResult ^ rhsResult;
 }

@@ -81,9 +81,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     if (_rhs!.result is UserFunction) {
       runtime.setUserFunction(identifier, _rhs!.result);
       return true;
-    }
-    else
-    {
+    } else {
       runtime.setVariable(identifier, _rhs!.result);
     }
 

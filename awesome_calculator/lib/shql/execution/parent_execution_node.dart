@@ -25,7 +25,7 @@ abstract class ParentExecutionNode extends ExecutionNode {
         return false;
       }
     }
-    onChildrenComplete(runtime);
+    await onChildrenComplete(runtime);
     return true;
   }
 
@@ -33,7 +33,7 @@ abstract class ParentExecutionNode extends ExecutionNode {
     return true;
   }
 
-  void onChildrenComplete(Runtime runtime) {}
+  Future<void> onChildrenComplete(Runtime runtime) async {}
 
   List<ExecutionNode> children;
 }

@@ -5,6 +5,6 @@ class ExponentiationExecutionNode extends NullAwareBinaryNode {
   ExponentiationExecutionNode(super.lhs, super.rhs);
 
   @override
-  dynamic evaluate(dynamic lhsResult, dynamic rhsResult) =>
+  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult) async =>
       pow(lhsResult, rhsResult);
 }

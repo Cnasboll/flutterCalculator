@@ -198,4 +198,22 @@ void main() {
     expect(v[6].tokenType, TokenTypes.not);
     expect(v[6].symbol, Symbols.not);
   });
+
+  test('Tokenize comment', () {
+    var v = Tokenizer.tokenize(' -- what').toList();
+
+    expect(v.length, 0);
+  });
+
+  test('Tokenize comment after something', () {
+    var v = Tokenizer.tokenize('x:=3 -- what').toList();
+
+    expect(v.length, 3);
+  });
+
+  test('Tokenize something after comment after something', () {
+    var v = Tokenizer.tokenize('x:=3 -- what\nx:=4').toList();
+
+    expect(v.length, 6);
+  });
 }

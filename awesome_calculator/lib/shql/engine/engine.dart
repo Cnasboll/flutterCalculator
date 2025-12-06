@@ -64,7 +64,7 @@ class Engine {
 
     var program = Parser.parse(code, constantsSet);
 
-    return await evaluate(program, runtime, cancellationToken);
+    return await _execute(program, runtime, cancellationToken);
   }
 
   static Future<dynamic> calculate(
@@ -74,24 +74,17 @@ class Engine {
   }) async {
     constantsSet ??= Runtime.prepareConstantsSet();
     runtime ??= Runtime.prepareRuntime(constantsSet);
-    try {
-      var program = Parser.parse(expression, constantsSet);
+    var program = Parser.parse(expression, constantsSet);
 
-      var result = await preview(program, runtime);
+    var result = await _calculate(program, runtime);
 
-      if (result.$2 == false) {
-        return null;
-      }
-      return result.$1;
-    } finally {
-      // Clean up any temporary state if needed in the future
-      runtime.popChildScopes();
-      runtime.clearBreakTargets();
-      runtime.clearReturnTargets();
+    if (result.$2 == false) {
+      return null;
     }
+    return result.$1;
   }
 
-  static Future<dynamic> evaluate(
+  static Future<dynamic> _execute(
     ParseTree parseTree,
     Runtime runtime,
     CancellationToken? cancellationToken,
@@ -114,27 +107,35 @@ class Engine {
       // Clean up any temporary state if needed in the future
       runtime.popChildScopes();
       runtime.clearBreakTargets();
+      runtime.clearReturnTargets();
     }
   }
 
-  static Future<(dynamic, bool)> preview(
+  static Future<(dynamic, bool)> _calculate(
     ParseTree parseTree,
     Runtime runtime,
   ) async {
-    var executionNode = createExecutionNode(parseTree);
-    if (executionNode == null) {
-      throw RuntimeException('Failed to create execution node.');
-    }
+    try {
+      var executionNode = createExecutionNode(parseTree);
+      if (executionNode == null) {
+        throw RuntimeException('Failed to create execution node.');
+      }
 
-    if (!await executionNode.tick(runtime)) {
-      return (null, false);
-    }
+      if (!await executionNode.tick(runtime)) {
+        return (null, false);
+      }
 
-    if (executionNode.error != null) {
-      throw RuntimeException(executionNode.error!);
-    }
+      if (executionNode.error != null) {
+        throw RuntimeException(executionNode.error!);
+      }
 
-    return (executionNode.result, true);
+      return (executionNode.result, true);
+    } finally {
+      // Clean up any temporary state if needed in the future
+      runtime.popChildScopes();
+      runtime.clearBreakTargets();
+      runtime.clearReturnTargets();
+    }
   }
 
   static ExecutionNode? createExecutionNode(ParseTree parseTree) {

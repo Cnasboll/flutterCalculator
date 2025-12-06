@@ -4,6 +4,7 @@ enum ECharCodeClasses {
   letter,
   digit,
   whitespace,
+  newline,
   lPar,
   rPar,
   lSquareBrack,
@@ -48,6 +49,8 @@ enum TokenizerState {
   exclamation,
   lt,
   gt,
+  minus,
+  comment,
   acceptEq,
   acceptMatch,
   acceptNotMatch,
@@ -92,11 +95,8 @@ bool isDigit(Char c) => c >= 0x30 && c <= 0x39; // '0'..'9'
 bool isUpper(Char c) => c >= 0x41 && c <= 0x5A; // 'A'..'Z'
 bool isLower(Char c) => c >= 0x61 && c <= 0x7A; // 'a'..'z'
 bool isLetter(Char c) => isUpper(c) || isLower(c); // letter (A-Z,a-z)
-bool isWhitespace(Char c) =>
-    c == 0x20 /* space */ ||
-    c == 0x09 /* tab  */ ||
-    c == 0x0A /* \n   */ ||
-    c == 0x0D /* \r   */;
+bool isWhitespace(Char c) => c == 0x20 /* space */ || c == 0x09 /* tab  */;
+bool isNewline(Char c) => c == 0x0A /* \n   */ || c == 0x0D /* \r   */;
 
 class TokenizerException implements Exception {
   final String message;
@@ -109,41 +109,57 @@ class TokenizerException implements Exception {
 
 class StateMachine {
   Iterable<Token> accept(Char charCode) sync* {
-    var nextState = _transitionTable[(_state, categorize(charCode))];
-    if (nextState != null) {
-      _state = nextState;
-      if (_state != TokenizerState.start) {
-        _buffer.writeCharCode(charCode);
-        var token = interpretAcceptState();
-        if (token != null) {
-          yield token;
-        }
-      }
-    } else {
-      var nextState = _defaultTransitionTable[_state];
+    if (isNewline(charCode)) {
+      _lineNumber++;
+      _columnNumber = 1;
+    }
+    try {
+      bool wasStartOrComment =
+          _state == TokenizerState.start || _state == TokenizerState.comment;
+      var nextState = _transitionTable[(_state, categorize(charCode))];
       if (nextState != null) {
         _state = nextState;
-        var token = interpretAcceptState();
-        if (token == null) {
+        if (_state != TokenizerState.start &&
+            _state != TokenizerState.comment) {
+          if (wasStartOrComment) {
+            _bufferStartLineNumber = _lineNumber;
+            _bufferStartColumnNumber = _columnNumber;
+            _buffer = StringBuffer();
+          }
           _buffer.writeCharCode(charCode);
-        } else {
-          yield token;
-
-          //Don't consume the char, run the char again.
-          for (var t in accept(charCode)) {
-            yield t;
+          var token = interpretAcceptState();
+          if (token != null) {
+            yield token;
           }
         }
       } else {
-        throw TokenizerException(
-          "Unexpected char '$charCode' in state $_state",
-        );
+        var nextState = _defaultTransitionTable[_state];
+        if (nextState != null) {
+          _state = nextState;
+          var token = interpretAcceptState();
+          if (token == null) {
+            _buffer.writeCharCode(charCode);
+          } else {
+            yield token;
+
+            //Don't consume the char, run the char again.
+            for (var t in accept(charCode)) {
+              yield t;
+            }
+          }
+        } else {
+          throw TokenizerException(
+            "Unexpected char '${String.fromCharCode(charCode)}' at line $_lineNumber, column $_columnNumber in state $_state",
+          );
+        }
       }
+    } finally {
+      _columnNumber++;
     }
   }
 
   Iterable<Token> acceptEndOfStream() sync* {
-    if (_state != TokenizerState.start) {
+    if (_state != TokenizerState.start && _state != TokenizerState.comment) {
       var nextState = _defaultTransitionTable[_state];
       TokenizerState oldState = _state;
       if (nextState != null) {
@@ -153,11 +169,13 @@ class StateMachine {
           yield token;
         } else {
           throw TokenizerException(
-            "Internal error: _defaultTransitionTable[{$oldState}] gave {$_state} but interpretAcceptState() returns null.",
+            "Internal error: _defaultTransitionTable[{$oldState}] gave {$_state} but interpretAcceptState() returns null at line $_lineNumber, column $_columnNumber.",
           );
         }
       } else {
-        throw TokenizerException("Unexpected end of stream in state {$_state}");
+        throw TokenizerException(
+          "Unexpected end of stream in state {$_state} at line $_lineNumber, column $_columnNumber.",
+        );
       }
     }
   }
@@ -165,9 +183,13 @@ class StateMachine {
   Token? interpretAcceptState() {
     var tokenType = _acceptStateTable[_state];
     if (tokenType != null) {
-      var token = Token.parser(tokenType, _buffer.toString());
+      var token = Token.parser(
+        tokenType,
+        _buffer.toString(),
+        _bufferStartLineNumber,
+        _bufferStartColumnNumber,
+      );
       _state = TokenizerState.start;
-      _buffer = StringBuffer();
       return token;
     }
     return null;
@@ -191,6 +213,10 @@ class StateMachine {
 
     if (isWhitespace(charCode)) {
       return ECharCodeClasses.whitespace;
+    }
+
+    if (isNewline(charCode)) {
+      return ECharCodeClasses.newline;
     }
 
     return null;
@@ -274,12 +300,12 @@ class StateMachine {
           TokenizerState.acceptMulOp,
       (TokenizerState.start, ECharCodeClasses.plusOp):
           TokenizerState.acceptPlusOp,
-      (TokenizerState.start, ECharCodeClasses.minusOp):
-          TokenizerState.acceptMinusOp,
+      (TokenizerState.start, ECharCodeClasses.minusOp): TokenizerState.minus,
       (TokenizerState.start, ECharCodeClasses.comma):
           TokenizerState.acceptComma,
       (TokenizerState.start, ECharCodeClasses.dot): TokenizerState.acceptDot,
       (TokenizerState.start, ECharCodeClasses.whitespace): TokenizerState.start,
+      (TokenizerState.start, ECharCodeClasses.newline): TokenizerState.start,
       (TokenizerState.identifier, ECharCodeClasses.r):
           TokenizerState.identifier,
       (TokenizerState.identifier, ECharCodeClasses.letter):
@@ -317,6 +343,8 @@ class StateMachine {
       (TokenizerState.lt, ECharCodeClasses.eq): TokenizerState.acceptLtEq,
       (TokenizerState.lt, ECharCodeClasses.gt): TokenizerState.acceptNeq,
       (TokenizerState.gt, ECharCodeClasses.eq): TokenizerState.acceptGtEq,
+      (TokenizerState.minus, ECharCodeClasses.minusOp): TokenizerState.comment,
+      (TokenizerState.comment, ECharCodeClasses.newline): TokenizerState.start,
     };
   }
 
@@ -330,6 +358,7 @@ class StateMachine {
       TokenizerState.exclamation: TokenizerState.acceptNot,
       TokenizerState.gt: TokenizerState.acceptGt,
       TokenizerState.lt: TokenizerState.acceptLt,
+      TokenizerState.minus: TokenizerState.acceptMinusOp,
       TokenizerState.doubleQuotedString: TokenizerState.doubleQuotedString,
       TokenizerState.singleQuotedString: TokenizerState.singleQuotedString,
       TokenizerState.doubleQuotedRawString:
@@ -340,6 +369,7 @@ class StateMachine {
           TokenizerState.doubleQuotedString,
       TokenizerState.escapeSingleQuotedString:
           TokenizerState.singleQuotedString,
+      TokenizerState.comment: TokenizerState.comment,
     };
   }
 
@@ -386,7 +416,11 @@ class StateMachine {
   }
 
   TokenizerState _state = TokenizerState.start;
+  int _lineNumber = 1;
+  int _columnNumber = 1;
   StringBuffer _buffer = StringBuffer();
+  int _bufferStartLineNumber = 1;
+  int _bufferStartColumnNumber = 1;
 
   static final Map<String, ECharCodeClasses> _charCodeClassTable =
       createCharCodeClassTable();

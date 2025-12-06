@@ -62,10 +62,17 @@ class Parser {
           // and push a multiplication operator to the operator stack
           // So we need a tryParseOperand that doesn't throw on failure and dosen't advance the enumerator
           // if no operand is found
-          var (operand, _) = tryParseOperand(tokenEnumerator, constantsSet);
-          if (operand != null) {
-            operandStack.add(operand);
-            operatorStack.add(Token.parser(TokenTypes.mul, "*"));
+          if (tokenEnumerator.hasNext) {
+            var token = tokenEnumerator.peek();
+            var lineNumber = token.lineNumber;
+            var columnNumber = token.columnNumber;
+            var (operand, _) = tryParseOperand(tokenEnumerator, constantsSet);
+            if (operand != null) {
+              operandStack.add(operand);
+              operatorStack.add(
+                Token.parser(TokenTypes.mul, "*", lineNumber, columnNumber),
+              );
+            }
           }
         } else {
           operandStack.add(brackets);
@@ -74,14 +81,22 @@ class Parser {
         operandStack.add(parseOperand(tokenEnumerator, constantsSet));
       }
       // If we find a left parenthesis after the operand, consider this a multiplication!
-      brackets = tryParseBrackets(tokenEnumerator, constantsSet);
-      if (brackets != null) {
-        if (brackets.symbol == Symbols.tuple && brackets.children.length == 1) {
-          operandStack.add(brackets.children[0]);
-          operatorStack.add(Token.parser(TokenTypes.mul, "*"));
-          popOperatorStack(tokenEnumerator, operandStack, operatorStack);
-        } else {
-          operandStack.add(brackets);
+      if (tokenEnumerator.hasNext) {
+        var token = tokenEnumerator.peek();
+        var lineNumber = token.lineNumber;
+        var columnNumber = token.columnNumber;
+        brackets = tryParseBrackets(tokenEnumerator, constantsSet);
+        if (brackets != null) {
+          if (brackets.symbol == Symbols.tuple &&
+              brackets.children.length == 1) {
+            operandStack.add(brackets.children[0]);
+            operatorStack.add(
+              Token.parser(TokenTypes.mul, "*", lineNumber, columnNumber),
+            );
+            popOperatorStack(tokenEnumerator, operandStack, operatorStack);
+          } else {
+            operandStack.add(brackets);
+          }
         }
       }
 
