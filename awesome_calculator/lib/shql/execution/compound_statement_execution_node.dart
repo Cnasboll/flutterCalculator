@@ -4,8 +4,8 @@ import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
-class ProgramExecutionNode extends LazyExecutionNode {
-  ProgramExecutionNode(super.node);
+class CompoundStatementExecutionNode extends LazyExecutionNode {
+  CompoundStatementExecutionNode(super.node);
 
   @override
   Future<bool> doTick(
@@ -18,7 +18,6 @@ class ProgramExecutionNode extends LazyExecutionNode {
       );
       if (_currentStatement == null) {
         error = 'Failed to create execution node for statement.';
-        runtime.popBreakTarget();
         return true;
       }
       if (!await tickChild(_currentStatement!, runtime, cancellationToken)) {

@@ -1,3 +1,4 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
@@ -7,7 +8,13 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
   LazyParentExecutionNode(super.node);
 
   @override
-  Future<bool> doTick(Runtime runtime) async {
+  Future<bool> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    if (await runtime.check(cancellationToken)) {
+      return true;
+    }
     if (children == null) {
       List<ExecutionNode> r = [];
       for (var child in node.children) {
@@ -24,8 +31,11 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
 
     while (_currentChildIndex < children!.length) {
       var child = children![_currentChildIndex];
-      if (!await tickChild(child, runtime)) {
+      if (!await tickChild(child, runtime, cancellationToken)) {
         return false;
+      }
+      if (await runtime.check(cancellationToken)) {
+        return true;
       }
       ++_currentChildIndex;
     }

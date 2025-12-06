@@ -1,3 +1,5 @@
+import 'package:flutter/rendering.dart';
+
 enum Symbols {
   none,
   program,
@@ -29,13 +31,14 @@ enum Symbols {
   thenKeyword,
   elseKeyword,
   whileLoop,
+  breakStatement,
+  returnStatement,
+  continueStatement,
   doKeyword,
-  beginKeyword,
+  compoundStatement,
   endKeyword,
   forKeyword,
   toKeyword,
-  breakKeyword,
-  returnKeyword,
   stepKeyword,
   unaryPlus,
   unaryMinus,
@@ -113,6 +116,7 @@ enum Keywords {
   toKeyword,
   stepKeyword,
   breakKeyword,
+  continueKeyword,
   returnKeyword,
   nullKeyword,
 }
@@ -276,6 +280,7 @@ class Token {
       "TO": Keywords.toKeyword,
       "STEP": Keywords.stepKeyword,
       "BREAK": Keywords.breakKeyword,
+      "CONTINUE": Keywords.continueKeyword,
       "RETURN": Keywords.returnKeyword,
       "NULL": Keywords.nullKeyword,
     };
@@ -367,13 +372,14 @@ class Token {
       Keywords.elseKeyword: Symbols.elseKeyword,
       Keywords.whileKeyword: Symbols.whileLoop,
       Keywords.doKeyword: Symbols.doKeyword,
-      Keywords.beginKeyword: Symbols.beginKeyword,
+      Keywords.breakKeyword: Symbols.breakStatement,
+      Keywords.continueKeyword: Symbols.continueStatement,
+      Keywords.returnKeyword: Symbols.returnStatement,
+      Keywords.beginKeyword: Symbols.compoundStatement,
       Keywords.endKeyword: Symbols.endKeyword,
       Keywords.forKeyword: Symbols.forKeyword,
       Keywords.toKeyword: Symbols.toKeyword,
       Keywords.stepKeyword: Symbols.stepKeyword,
-      Keywords.breakKeyword: Symbols.breakKeyword,
-      Keywords.returnKeyword: Symbols.returnKeyword,
       Keywords.nullKeyword: Symbols.nullLiteral,
     };
   }

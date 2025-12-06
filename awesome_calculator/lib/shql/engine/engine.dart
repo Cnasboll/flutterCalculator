@@ -1,5 +1,6 @@
 import 'dart:core';
 
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/addition_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/division_execution_node.dart';
@@ -12,7 +13,10 @@ import 'package:awesome_calculator/shql/execution/boolean/and_execution_node.dar
 import 'package:awesome_calculator/shql/execution/boolean/not_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/boolean/or_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/boolean/xor_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/break_statement_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/compound_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/constant_node.dart';
+import 'package:awesome_calculator/shql/execution/continue_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
@@ -30,6 +34,7 @@ import 'package:awesome_calculator/shql/execution/relational/greater_than_or_equ
 import 'package:awesome_calculator/shql/execution/relational/less_than_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/return_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/while_loop_execution_node.dart';
@@ -52,13 +57,14 @@ class Engine {
     String code, {
     Runtime? runtime,
     ConstantsSet? constantsSet,
+    CancellationToken? cancellationToken,
   }) async {
     constantsSet ??= Runtime.prepareConstantsSet();
     runtime ??= Runtime.prepareRuntime(constantsSet);
 
     var program = Parser.parse(code, constantsSet);
 
-    return await evaluate(program, runtime);
+    return await evaluate(program, runtime, cancellationToken);
   }
 
   static Future<dynamic> calculate(
@@ -68,30 +74,47 @@ class Engine {
   }) async {
     constantsSet ??= Runtime.prepareConstantsSet();
     runtime ??= Runtime.prepareRuntime(constantsSet);
+    try {
+      var program = Parser.parse(expression, constantsSet);
 
-    var program = Parser.parse(expression, constantsSet);
+      var result = await preview(program, runtime);
 
-    var result = await preview(program, runtime);
-
-    if (result.$2 == false) {
-      return null;
+      if (result.$2 == false) {
+        return null;
+      }
+      return result.$1;
+    } finally {
+      // Clean up any temporary state if needed in the future
+      runtime.popChildScopes();
+      runtime.clearBreakTargets();
+      runtime.clearReturnTargets();
     }
-    return result.$1;
   }
 
-  static Future<dynamic> evaluate(ParseTree parseTree, Runtime runtime) async {
-    var executionNode = createExecutionNode(parseTree);
-    if (executionNode == null) {
-      throw RuntimeException('Failed to create execution node.');
+  static Future<dynamic> evaluate(
+    ParseTree parseTree,
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    try {
+      var executionNode = createExecutionNode(parseTree);
+      if (executionNode == null) {
+        throw RuntimeException('Failed to create execution node.');
+      }
+
+      while ((cancellationToken == null || !await cancellationToken.check()) &&
+          !await executionNode.tick(runtime, cancellationToken)) {}
+
+      if (executionNode.error != null) {
+        throw RuntimeException(executionNode.error!);
+      }
+
+      return executionNode.result;
+    } finally {
+      // Clean up any temporary state if needed in the future
+      runtime.popChildScopes();
+      runtime.clearBreakTargets();
     }
-
-    while (!await executionNode.tick(runtime)) {}
-
-    if (executionNode.error != null) {
-      throw RuntimeException(executionNode.error!);
-    }
-
-    return executionNode.result;
   }
 
   static Future<(dynamic, bool)> preview(
@@ -140,6 +163,26 @@ class Engine {
     }
 
     executionNode = tryCreateWhileLoopExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateBreakStatementExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateContinueStatementExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateReturnStatementExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateCompoundStatementExecutionNode(parseTree);
     if (executionNode != null) {
       return executionNode;
     }
@@ -278,5 +321,41 @@ class Engine {
       return null;
     }
     return WhileLoopExecutionNode(parseTree);
+  }
+
+  static ExecutionNode? tryCreateBreakStatementExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.breakStatement) {
+      return null;
+    }
+    return BreakStatementExecutionNode();
+  }
+
+  static ExecutionNode? tryCreateContinueStatementExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.continueStatement) {
+      return null;
+    }
+    return ContinueStatementExecutionNode();
+  }
+
+  static ExecutionNode? tryCreateReturnStatementExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.returnStatement) {
+      return null;
+    }
+    return ReturnStatementExecutionNode(parseTree);
+  }
+
+  static ExecutionNode? tryCreateCompoundStatementExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.compoundStatement) {
+      return null;
+    }
+    return CompoundStatementExecutionNode(parseTree);
   }
 }

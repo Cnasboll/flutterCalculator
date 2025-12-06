@@ -1,3 +1,4 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
@@ -12,15 +13,25 @@ class UserFunctionExecutionNode extends ExecutionNode {
   final List<ExecutionNode> arguments;
   final ExecutionNode body;
   int _argumentIndex = 0;
-  bool _scopePushed = false;
+  ReturnTarget? _returnTarget;
 
   @override
-  Future<bool> doTick(Runtime runtime) async {
-    if (!_scopePushed) {
+  Future<bool> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    if (_returnTarget == null) {
       // Tick current argument nodes
       while (_argumentIndex < arguments.length) {
-        if (!await tickChild(arguments[_argumentIndex], runtime)) {
+        if (!await tickChild(
+          arguments[_argumentIndex],
+          runtime,
+          cancellationToken,
+        )) {
           return false;
+        }
+        if (await runtime.check(cancellationToken)) {
+          return true;
         }
         ++_argumentIndex;
       }
@@ -33,16 +44,30 @@ class UserFunctionExecutionNode extends ExecutionNode {
       }
       // Assign argument values to identifiers
       for (int i = 0; i < argumentIdentifiers.length; i++) {
-        runtime.assignVariable(argumentIdentifiers[i], arguments[i].result);
+        var argument = arguments[i].result;
+        if (argument is UserFunction) {
+          runtime.setUserFunction(argumentIdentifiers[i], argument);
+        } else {
+          runtime.assignVariable(argumentIdentifiers[i], argument);
+        }
       }
-      _scopePushed = true;
+      _returnTarget = runtime.pushReturnTarget();
     }
+    var returnTarget = _returnTarget!;
     // Tick the body
-    if (!await tickChild(body, runtime)) {
+    if (!await tickChild(body, runtime, cancellationToken)) {
+      // Handle return value
+      if (await returnTarget.check(cancellationToken)) {
+        if (returnTarget.hasReturnValue) {
+          result = returnTarget.returnValue;
+        }
+        return true;
+      }
       return false;
     }
 
     runtime.popScope();
+    runtime.popReturnTarget();
     return true;
   }
 }

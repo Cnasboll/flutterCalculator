@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/widgets/post_it_note.dart';
@@ -31,6 +32,9 @@ class AncientComputer extends StatefulWidget {
 
 class _AncientComputerState extends State<AncientComputer>
     with SingleTickerProviderStateMixin {
+  late CancellationToken _cancellationToken;
+  bool _isExecuting = false;
+
   Future<void> _copyAllShqlAssetsToExternalStorage() async {
     try {
       // List all .shql files in assets manually (since Flutter can't list assets at runtime)
@@ -148,7 +152,7 @@ class _AncientComputerState extends State<AncientComputer>
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '\\'],
     ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'ENTER'],
     ['SHIFT', 'SPACE', 'BACK', 'DEL', '←', '↑', '↓', '→'],
-    ['LOAD', 'RESET'],
+    ['BREAK', 'LOAD', 'RESET'],
   ];
 
   // Shift mappings for characters
@@ -181,6 +185,7 @@ class _AncientComputerState extends State<AncientComputer>
   @override
   void initState() {
     super.initState();
+    _cancellationToken = CancellationToken();
     _copyAllShqlAssetsToExternalStorage();
     resetEngine();
     _cursorController = AnimationController(
@@ -221,14 +226,35 @@ class _AncientComputerState extends State<AncientComputer>
 
   /// Request input from user with an optional prompt
   /// Returns a Future that completes when user presses ENTER
-  Future<String> readline([String? prompt]) {
+  Future<String> readline([String? prompt]) async {
     final completer = Completer<String>();
+
+    // If the execution is cancelled while waiting for input, complete immediately.
+    if (await _cancellationToken.check()) {
+      completer.complete('');
+      return completer.future;
+    }
+
+    final subscription = Stream.periodic(const Duration(milliseconds: 100))
+        .listen((_) async {
+          if (await _cancellationToken.check()) {
+            if (!completer.isCompleted) {
+              completer.complete('');
+            }
+          }
+        });
+
+    completer.future.whenComplete(() {
+      subscription.cancel();
+    });
 
     setState(() {
       _waitingForInput = true;
-      _readlinePrompt = prompt;
+      _readlinePrompt = prompt ?? "";
       _readlineCallback = (String input) {
-        completer.complete(input);
+        if (!completer.isCompleted) {
+          completer.complete(input);
+        }
         _waitingForInput = false;
         _readlinePrompt = null;
         _readlineCallback = null;
@@ -296,6 +322,11 @@ class _AncientComputerState extends State<AncientComputer>
 
   (String, String) _formatResult(dynamic result) {
     final String padding = ' ';
+
+    if (result is UserFunction) {
+      return ('USER FUNCTION ${result.name}', padding);
+    }
+
     // Format result based on type
     if (result == null) {
       return ('NULL', padding);
@@ -402,6 +433,14 @@ class _AncientComputerState extends State<AncientComputer>
     }
   }
 
+  void showPrompt() {
+    setState(() {
+      _terminalText += '\n$_promptSymbol';
+      _currentPromptPosition = _terminalText.length - _promptSymbol.length;
+      _cursorPosition = _terminalText.length;
+    });
+  }
+
   /// Handle down arrow: command history on last line, cursor movement otherwise
   void _handleArrowDown() {
     final isInInputSection = _cursorPosition >= _currentPromptPosition;
@@ -435,9 +474,54 @@ class _AncientComputerState extends State<AncientComputer>
     }
   }
 
-  void _handleKeyPress(String key) {
+  void _handleKeyPress(String key) async {
     // Play typewriter sound for key press
     SoundManager().playSound('sounds/typewriter_key.wav');
+
+    if (key == 'ENTER' && !_shiftPressed) {
+      final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+      final inputStart = _currentPromptPosition + promptLength;
+      if (_waitingForInput && _readlineCallback != null) {
+        _readlineCallback!(_terminalText.substring(_currentPromptPosition));
+      } else {
+        final currentInput = _terminalText.substring(inputStart).trim();
+        if (currentInput.isNotEmpty) {
+          setState(() {
+            _commandHistory.add(currentInput);
+            _historyIndex = -1;
+            _currentInput = '';
+            _isExecuting = true;
+            _cancellationToken.reset();
+          });
+
+          await Future.delayed(Duration.zero);
+
+          try {
+            final result = await Engine.execute(
+              currentInput,
+              runtime: runtime,
+              constantsSet: constantsSet,
+              cancellationToken: _cancellationToken,
+            );
+            if (!mounted) return;
+            final (formatted, padding) = _formatResult(result);
+            terminalPrint(formatted);
+          } catch (e) {
+            if (!mounted) return;
+            terminalPrint(e.toString());
+          } finally {
+            if (!mounted) return;
+            setState(() {
+              _isExecuting = false;
+            });
+            showPrompt();
+          }
+        } else {
+          showPrompt();
+        }
+      }
+      return;
+    }
 
     setState(() {
       _pressedKey = key;
@@ -471,6 +555,11 @@ class _AncientComputerState extends State<AncientComputer>
       } else if (key == 'RESET') {
         resetEngine();
         return;
+      } else if (key == 'BREAK') {
+        if (_isExecuting) {
+          _cancellationToken.cancel();
+        }
+        return;
       }
 
       if (key == 'SHIFT') {
@@ -489,122 +578,76 @@ class _AncientComputerState extends State<AncientComputer>
           _terminalText =
               '${_terminalText.substring(0, _cursorPosition)}\n${_terminalText.substring(_cursorPosition)}';
           _cursorPosition += 1;
-        } else {
-          // Regular ENTER: Handle based on whether we're waiting for readline or executing command
-          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-          final inputStart = _currentPromptPosition + promptLength;
-          if (_waitingForInput && _readlineCallback != null) {
-            // Readline mode: complete the readline future with the input
-            _readlineCallback!(_terminalText.substring(_currentPromptPosition));
-            // Don't add to history or create new prompt - let the program control flow
-          } else {
-            final currentInput = _terminalText.substring(inputStart).trim();
-            // Normal command mode: execute and add to history
-            if (currentInput.isNotEmpty) {
-              _commandHistory.add(currentInput);
-              _historyIndex = -1;
-              _currentInput = '';
-
-              Engine.execute(
-                    currentInput,
-                    runtime: runtime,
-                    constantsSet: constantsSet,
-                  )
-                  .then((result) {
-                    if (!mounted) return;
-                    final (formatted, padding) = _formatResult(result);
-                    terminalPrint(formatted);
-                    showPrompt();
-                  })
-                  .catchError((e) {
-                    if (!mounted) return;
-                    terminalPrint(e.toString());
-                    showPrompt();
-                  });
-            } else {
-              showPrompt();
-            }
-          }
         }
       } else if (key == 'BACK') {
-        if (_cursorPosition > 0) {
-          // Don't allow deleting the prompt or before it
-          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-          final promptEnd = _currentPromptPosition + promptLength;
-
-          if (_cursorPosition > promptEnd) {
-            _terminalText =
-                _terminalText.substring(0, _cursorPosition - 1) +
-                _terminalText.substring(_cursorPosition);
-            _cursorPosition--;
-            _evaluateCurrentInput();
-          }
+        final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+        final promptEnd = _currentPromptPosition + promptLength;
+        if (_cursorPosition > promptEnd) {
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition - 1) +
+              _terminalText.substring(_cursorPosition);
+          _cursorPosition--;
         }
       } else if (key == 'DEL') {
-        if (_cursorPosition < _terminalText.length) {
-          // Delete character at cursor position (forward delete)
+        final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
+        final promptEnd = _currentPromptPosition + promptLength;
+        if (_cursorPosition >= promptEnd &&
+            _cursorPosition < _terminalText.length) {
           _terminalText =
               _terminalText.substring(0, _cursorPosition) +
               _terminalText.substring(_cursorPosition + 1);
-          _evaluateCurrentInput();
         }
       } else if (key == 'SPACE') {
         _terminalText =
-            '${_terminalText.substring(0, _cursorPosition)} ${_terminalText.substring(_cursorPosition)}';
-        _cursorPosition++;
-      } else {
-        // Check if this is a function name - insert with parentheses
-        if (_functionNames.contains(key)) {
-          _terminalText =
-              '${_terminalText.substring(0, _cursorPosition)}$key()${_terminalText.substring(_cursorPosition)}';
-          _cursorPosition +=
-              key.length + 1; // Position cursor inside parentheses
-          _evaluateCurrentInput();
-          return;
-        }
-
-        // Apply shift mapping if shift is pressed
-        String charToInsert = key;
-        if (_shiftPressed && _shiftMap.containsKey(key)) {
-          charToInsert = _shiftMap[key]!;
-        } else {
-          // Make letters lowercase if shift not pressed
-          if (key.length == 1 &&
-              key.codeUnitAt(0) >= 65 &&
-              key.codeUnitAt(0) <= 90) {
-            charToInsert = key.toLowerCase();
-          }
-        }
-
-        _terminalText =
             _terminalText.substring(0, _cursorPosition) +
-            charToInsert +
+            ' ' +
             _terminalText.substring(_cursorPosition);
         _cursorPosition++;
+      } else {
+        // Regular character input
+        String char = key;
+        if (_shiftPressed) {
+          char = _shiftMap[key.toLowerCase()] ?? key.toUpperCase();
+        }
+
+        // Insert parentheses for function names
+        if (_functionNames.contains(char)) {
+          char += '()';
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition) +
+              char +
+              _terminalText.substring(_cursorPosition);
+          _cursorPosition += char.length - 1; // Position cursor inside ()
+        } else {
+          _terminalText =
+              _terminalText.substring(0, _cursorPosition) +
+              char +
+              _terminalText.substring(_cursorPosition);
+          _cursorPosition += char.length;
+        }
       }
 
-      // Evaluate expression after every keystroke
+      // After any text modification, evaluate the current input for the cash register display
       _evaluateCurrentInput();
-    });
 
-    // Reset pressed key animation after a short delay
-    Future.delayed(_keyPressDuration, () {
-      if (mounted) {
-        setState(() {
-          _pressedKey = null;
-        });
+      // Reset one-time shift toggle after use
+      if (_virtualShiftToggled && key != 'SHIFT') {
+        _virtualShiftToggled = false;
       }
+
+      // Reset pressed key visual feedback
+      Future.delayed(_keyPressDuration, () {
+        if (mounted) {
+          setState(() {
+            _pressedKey = null;
+          });
+        }
+      });
     });
   }
 
-  void showPrompt() {
-    // Move cursor to end and add new prompt
-    _terminalText += '\n$_promptSymbol';
-    _currentPromptPosition = _terminalText.length - _promptSymbol.length;
-    _cursorPosition = _terminalText.length;
-  }
-
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+  /// Handle physical keyboard events
+  void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
       // Play typewriter sound for physical keyboard
       SoundManager().playSound('sounds/typewriter_key.wav');
@@ -613,34 +656,17 @@ class _AncientComputerState extends State<AncientComputer>
 
       // Handle arrow keys for cursor movement
       if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        setState(() {
-          if (_cursorPosition > 0) {
-            _cursorPosition--;
-            // Don't allow cursor before the current prompt
-            final promptEnd = _currentPromptPosition + _promptSymbol.length;
-            if (_cursorPosition < promptEnd) {
-              _cursorPosition = promptEnd;
-            }
-          }
-        });
-        return KeyEventResult.handled;
+        _handleKeyPress('←');
+        return;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        setState(() {
-          if (_cursorPosition < _terminalText.length) {
-            _cursorPosition++;
-          }
-        });
-        return KeyEventResult.handled;
+        _handleKeyPress('→');
+        return;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        setState(() {
-          _handleArrowUp();
-        });
-        return KeyEventResult.handled;
+        _handleKeyPress('↑');
+        return;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        setState(() {
-          _handleArrowDown();
-        });
-        return KeyEventResult.handled;
+        _handleKeyPress('↓');
+        return;
       }
 
       // Map physical keyboard keys to our virtual keyboard
@@ -685,10 +711,9 @@ class _AncientComputerState extends State<AncientComputer>
 
       if (key != null) {
         _handleKeyPress(key);
-        return KeyEventResult.handled;
+        return;
       }
     }
-    return KeyEventResult.ignored;
   }
 
   @override
@@ -701,23 +726,23 @@ class _AncientComputerState extends State<AncientComputer>
           if (event is KeyDownEvent) {
             if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
-              _physicalShiftPressed = true;
-              _virtualShiftToggled = false;
-              setState(() {});
+              setState(() {
+                _physicalShiftPressed = true;
+                _virtualShiftToggled = false;
+              });
               return;
             }
           } else if (event is KeyUpEvent) {
             if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
-              _physicalShiftPressed = false;
-              setState(() {});
+              setState(() {
+                _physicalShiftPressed = false;
+              });
               return;
             }
           }
 
-          if (event is KeyDownEvent) {
-            _handleKeyEvent(_focusNode, event);
-          }
+          _handleKeyEvent(event);
         },
         child: Container(
           width: double.infinity,
@@ -762,6 +787,7 @@ class _AncientComputerState extends State<AncientComputer>
                     virtualShiftToggled: _virtualShiftToggled,
                     physicalShiftPressed: _physicalShiftPressed,
                     onKeyPress: _handleKeyPress,
+                    isExecuting: _isExecuting,
                   ),
                 ],
               ),

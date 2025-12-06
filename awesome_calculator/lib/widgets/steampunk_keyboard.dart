@@ -13,6 +13,7 @@ class SteampunkKeyboard extends StatelessWidget {
   final bool virtualShiftToggled;
   final bool physicalShiftPressed;
   final void Function(String) onKeyPress;
+  final bool isExecuting;
 
   const SteampunkKeyboard({
     super.key,
@@ -23,6 +24,7 @@ class SteampunkKeyboard extends StatelessWidget {
     required this.virtualShiftToggled,
     required this.physicalShiftPressed,
     required this.onKeyPress,
+    this.isExecuting = false,
   });
 
   String _getDisplayLabel(String key) {
@@ -61,6 +63,7 @@ class SteampunkKeyboard extends StatelessWidget {
                       onPressed: () => onKeyPress(key),
                       isShifted: isShifted,
                       shiftMap: shiftMap,
+                      isExecuting: isExecuting,
                     ),
                   );
                 }).toList(),

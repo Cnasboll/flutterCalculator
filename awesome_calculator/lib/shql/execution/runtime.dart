@@ -1,19 +1,82 @@
 import 'dart:math';
 
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
 /// Represents a user-defined function with its arguments and body.
 class UserFunction {
+  final String? name;
   final List<int> argumentIdentifiers;
   final ParseTree body;
 
-  UserFunction({required this.argumentIdentifiers, required this.body});
+  UserFunction({
+    this.name,
+    required this.argumentIdentifiers,
+    required this.body,
+  });
 }
 
 class _Scope {
   final Map<int, dynamic> variables = {};
   final Map<int, UserFunction> userFunctions = {};
+}
+
+enum BreakState { none, breaked, continued }
+
+class BreakTarget {
+  BreakState _state = BreakState.none;
+  void breakExecution() {
+    _state = BreakState.breaked;
+  }
+
+  void continueExecution() {
+    _state = BreakState.continued;
+  }
+
+  bool clearContinued() {
+    var continued = _state == BreakState.continued;
+    if (continued) {
+      _state = BreakState.none;
+    }
+    return continued;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _state == BreakState.breaked;
+  }
+}
+
+class ReturnTarget {
+  bool _returned = false;
+  bool _hasReturnValue = false;
+
+  dynamic _returnValue;
+
+  dynamic get returnValue => _returnValue;
+  bool get hasReturnValue => _hasReturnValue;
+
+  void returnNothing() {
+    _returned = true;
+    _hasReturnValue = false;
+    _returnValue = null;
+  }
+
+  void returnAValue(dynamic returnValue) {
+    _returned = true;
+    _hasReturnValue = true;
+    _returnValue = returnValue;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _returned;
+  }
 }
 
 class Runtime {
@@ -23,6 +86,8 @@ class Runtime {
   late final Map<int, Function(dynamic p1)> _unaryFunctions;
   late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
   final List<_Scope> _scopeStack = [];
+  final List<BreakTarget> _breakTargets = [];
+  final List<ReturnTarget> _returnTargets = [];
   final Map<int, Runtime> _subModelScopes = {};
   bool _readonly = false;
 
@@ -86,6 +151,88 @@ class Runtime {
     if (_scopeStack.length > 1) {
       _scopeStack.removeLast();
     }
+  }
+
+  void popChildScopes() {
+    while (_scopeStack.length > 1) {
+      popScope();
+    }
+  }
+
+  BreakTarget pushBreakTarget() {
+    var breakTarget = BreakTarget();
+    _breakTargets.add(breakTarget);
+    return breakTarget;
+  }
+
+  void popBreakTarget() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.removeLast();
+    }
+  }
+
+  void breakCurrentExecution() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.last.breakExecution();
+    }
+  }
+
+  BreakTarget? get currentBreakTarget {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last;
+    }
+    return null;
+  }
+
+  BreakState currentExecutionBreakState() {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last._state;
+    }
+    return BreakState.none;
+  }
+
+  void clearBreakTargets() {
+    _breakTargets.clear();
+  }
+
+  ReturnTarget pushReturnTarget() {
+    var returnTarget = ReturnTarget();
+    _returnTargets.add(returnTarget);
+    return returnTarget;
+  }
+
+  void popReturnTarget() {
+    if (_returnTargets.isNotEmpty) {
+      _returnTargets.removeLast();
+    }
+  }
+
+  ReturnTarget? get currentReturnTarget {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last;
+    }
+    return null;
+  }
+
+  bool currentFunctionReturned() {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last._returned;
+    }
+    return false;
+  }
+
+  void clearReturnTargets() {
+    _returnTargets.clear();
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    if (currentExecutionBreakState() != BreakState.none) {
+      return true;
+    }
+    return currentFunctionReturned();
   }
 
   Runtime readOnlyChild() {
@@ -248,7 +395,7 @@ class Runtime {
     setNullaryFunction("READLINE", readLine);
   }
 
-    static ConstantsSet prepareConstantsSet() {
+  static ConstantsSet prepareConstantsSet() {
     var constantsSet = ConstantsSet();
     // Register mathematical constants
     for (var entry in allConstants.entries) {
@@ -315,6 +462,32 @@ class Runtime {
     "LOG": (a) => log(a),
     "LOWERCASE": (a) => a.toString().toLowerCase(),
     "UPPERCASE": (a) => a.toString().toUpperCase(),
+    "INT": (a) {
+      if (a is int) {
+        return a;
+      }
+      if (a is String) {
+        return int.tryParse(a) ?? 0;
+      }
+      if (a is double) {
+        return a.toInt();
+      }
+      return a;
+    },
+    "DOUBLE": (a) {
+      if (a is double) {
+        return a;
+      }
+      if (a is String) {
+        return double.tryParse(a) ?? 0.0;
+      }
+      if (a is int) {
+        return a.toDouble();
+      }
+      return a;
+    },
+    "STRING": (a) => a.toString(),
+    "ROUND": (a) => a is double ? a.round() : a,
   };
 
   static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =

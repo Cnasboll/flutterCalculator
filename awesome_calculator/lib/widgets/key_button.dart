@@ -16,6 +16,7 @@ class KeyButton extends StatefulWidget {
   final VoidCallback onPressed;
   final bool isShifted;
   final Map<String, String> shiftMap;
+  final bool isExecuting;
 
   const KeyButton({
     super.key,
@@ -25,6 +26,7 @@ class KeyButton extends StatefulWidget {
     required this.onPressed,
     required this.isShifted,
     required this.shiftMap,
+    this.isExecuting = false,
   });
 
   @override
@@ -82,6 +84,7 @@ class _KeyButtonState extends State<KeyButton>
   Widget build(BuildContext context) {
     // Always use widget.baseKey which contains the original unshifted key
     final baseKey = widget.baseKey!;
+    final isBreakKey = baseKey == 'BREAK';
     final isFunctionKey =
         baseKey == 'SIN' ||
         baseKey == 'COS' ||
@@ -99,7 +102,8 @@ class _KeyButtonState extends State<KeyButton>
         baseKey == 'SHIFT' ||
         baseKey == 'TAB' ||
         baseKey == 'LOAD' ||
-        baseKey == 'RESET';
+        baseKey == 'RESET' ||
+        isBreakKey;
     final isEnter = baseKey == 'ENTER';
     final width = isFunctionKey
         ? 45.0
@@ -109,151 +113,163 @@ class _KeyButtonState extends State<KeyButton>
     final shifted = widget.shiftMap[baseKey] ?? baseKey;
     final showBoth = unshifted != shifted;
 
-    return GestureDetector(
-      onTap: widget.onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        width: width,
-        height: 32,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFFCD7F32), // Bronze
-              const Color(0xFFB87333), // Copper
-              const Color(0xFF8B4513), // Saddle brown
-            ],
-          ),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: const Color(0xFF4A3728), // Dark brown
-            width: 2,
-          ),
-          boxShadow: [
-            const BoxShadow(
-              color: Colors.black87,
-              offset: Offset(3, 3),
-              blurRadius: 4,
-            ),
-            BoxShadow(
-              color: const Color(0xFFCD7F32).withValues(alpha: 0.3),
-              offset: const Offset(-1, -1),
-              blurRadius: 2,
-            ),
-          ],
+    final bool isBreakAndNotExecuting = isBreakKey && !widget.isExecuting;
+
+    final buttonContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      width: width,
+      height: 32,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBreakKey && widget.isExecuting
+              ? [
+                  const Color(0xFFD32F2F), // Red
+                  const Color(0xFFB71C1C), // Darker Red
+                  const Color(0xFF880E4F), // Darkest Red
+                ]
+              : [
+                  const Color(0xFFCD7F32), // Bronze
+                  const Color(0xFFB87333), // Copper
+                  const Color(0xFF8B4513), // Saddle brown
+                ],
         ),
-        child: Stack(
-          children: [
-            // Lightbulb at top center
-            Positioned(
-              top: 2,
-              left: width / 2 - 4,
-              child: Lightbulb(isLit: widget.isPressed),
-            ),
-            // Rivets in corners
-            Positioned(top: 2, left: 2, child: Rivet()),
-            Positioned(top: 2, right: 2, child: Rivet()),
-            Positioned(bottom: 2, left: 2, child: Rivet()),
-            Positioned(bottom: 2, right: 2, child: Rivet()),
-            // Text with drum rotation effect
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 14,
-              bottom: -2,
-              child: showBoth
-                  ? AnimatedBuilder(
-                      animation: _rotationAnimation,
-                      builder: (context, child) {
-                        return OverflowBox(
-                          maxHeight: 36,
-                          child: Transform.translate(
-                            offset: Offset(
-                              0,
-                              -18 + _rotationAnimation.value * 18,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Shifted character (moves into view when shift pressed)
-                                SizedBox(
-                                  height: 18,
-                                  child: Align(
-                                    alignment: Alignment.bottomCenter,
-                                    child: Text(
-                                      shifted,
-                                      style: const TextStyle(
-                                        color: Color(0xFFFFE4B5),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'monospace',
-                                        height: 1.0,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54,
-                                            offset: Offset(1, 1),
-                                            blurRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Unshifted character (visible by default)
-                                SizedBox(
-                                  height: 18,
-                                  child: Align(
-                                    alignment: Alignment.bottomCenter,
-                                    child: Text(
-                                      unshifted,
-                                      style: const TextStyle(
-                                        color: Color(0xFFFFE4B5),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'monospace',
-                                        height: 1.0,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54,
-                                            offset: Offset(1, 1),
-                                            blurRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: const Color(0xFF4A3728), // Dark brown
+          width: 2,
+        ),
+        boxShadow: [
+          const BoxShadow(
+            color: Colors.black87,
+            offset: Offset(3, 3),
+            blurRadius: 4,
+          ),
+          BoxShadow(
+            color: const Color(0xFFCD7F32).withOpacity(0.3),
+            offset: const Offset(-1, -1),
+            blurRadius: 2,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Lightbulb at top center
+          Positioned(
+            top: 2,
+            left: width / 2 - 4,
+            child: Lightbulb(isLit: widget.isPressed),
+          ),
+          // Rivets in corners
+          Positioned(top: 2, left: 2, child: Rivet()),
+          Positioned(top: 2, right: 2, child: Rivet()),
+          Positioned(bottom: 2, left: 2, child: Rivet()),
+          Positioned(bottom: 2, right: 2, child: Rivet()),
+          // Text with drum rotation effect
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 14,
+            bottom: -2,
+            child: showBoth
+                ? AnimatedBuilder(
+                    animation: _rotationAnimation,
+                    builder: (context, child) {
+                      return OverflowBox(
+                        maxHeight: 36,
+                        child: Transform.translate(
+                          offset: Offset(
+                            0,
+                            -18 + _rotationAnimation.value * 18,
                           ),
-                        );
-                      },
-                    )
-                  : Center(
-                      child: Text(
-                        widget.isShifted && shifted != unshifted
-                            ? shifted
-                            : baseKey,
-                        style: TextStyle(
-                          color: const Color(0xFFFFE4B5),
-                          fontSize: isWide ? 8 : 11,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
-                          shadows: const [
-                            Shadow(
-                              color: Colors.black54,
-                              offset: Offset(1, 1),
-                              blurRadius: 2,
-                            ),
-                          ],
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Shifted character (moves into view when shift pressed)
+                              SizedBox(
+                                height: 18,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Text(
+                                    shifted,
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFE4B5),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'monospace',
+                                      height: 1.0,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black54,
+                                          offset: Offset(1, 1),
+                                          blurRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Unshifted character (visible by default)
+                              SizedBox(
+                                height: 18,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Text(
+                                    unshifted,
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFE4B5),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'monospace',
+                                      height: 1.0,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black54,
+                                          offset: Offset(1, 1),
+                                          blurRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      );
+                    },
+                  )
+                : Center(
+                    child: Text(
+                      widget.isShifted && shifted != unshifted
+                          ? shifted
+                          : baseKey,
+                      style: TextStyle(
+                        color: const Color(0xFFFFE4B5),
+                        fontSize: isWide ? 8 : 11,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                        shadows: const [
+                          Shadow(
+                            color: Colors.black54,
+                            offset: Offset(1, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
                       ),
                     ),
-            ),
-          ],
-        ),
+                  ),
+          ),
+        ],
       ),
+    );
+
+    return GestureDetector(
+      onTap: isBreakAndNotExecuting ? null : widget.onPressed,
+      child: isBreakAndNotExecuting
+          ? Opacity(opacity: 0.5, child: buttonContent)
+          : buttonContent,
     );
   }
 }

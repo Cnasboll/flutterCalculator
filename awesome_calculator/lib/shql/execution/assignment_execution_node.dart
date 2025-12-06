@@ -1,3 +1,4 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
@@ -9,7 +10,13 @@ class AssignmentExecutionNode extends LazyExecutionNode {
   AssignmentExecutionNode(super.node);
 
   @override
-  Future<bool> doTick(Runtime runtime) async {
+  Future<bool> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    if (await runtime.check(cancellationToken)) {
+      return true;
+    }
     if (_rhs == null) {
       var (rhs, e) = createRhs(runtime);
       if (e != null) {
@@ -22,12 +29,17 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       _rhs = rhs;
     }
 
-    if (!await tickChild(_rhs!, runtime)) {
+    if (!await tickChild(_rhs!, runtime, cancellationToken)) {
       return false;
     }
 
     var identifier = node.children[0].qualifier!;
     runtime.setVariable(identifier, _rhs!.result);
+
+    if (await runtime.check(cancellationToken)) {
+      return true;
+    }
+
     return true;
   }
 
@@ -66,7 +78,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       }
 
       if (child.symbol == Symbols.tuple) {
-        if (defineUserFunction(child, runtime, identifier)) {
+        if (defineUserFunction(name, child, runtime, identifier)) {
           return (null, null);
         } else {
           return (null, "Cannot create user function for identifier $name.");
@@ -79,7 +91,12 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     return (Engine.createExecutionNode(node.children[1])!, null);
   }
 
-  bool defineUserFunction(ParseTree child, Runtime runtime, int identifier) {
+  bool defineUserFunction(
+    String name,
+    ParseTree child,
+    Runtime runtime,
+    int identifier,
+  ) {
     var arguments = child.children;
     List<int> argumentIdentifiers = [];
     for (var arg in arguments) {
@@ -94,6 +111,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       argumentIdentifiers.add(arg.qualifier!);
     }
     var userFunction = UserFunction(
+      name: name,
       argumentIdentifiers: argumentIdentifiers,
       body: node.children[1],
     );

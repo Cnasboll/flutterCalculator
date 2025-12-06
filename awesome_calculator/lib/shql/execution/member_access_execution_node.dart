@@ -1,3 +1,4 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
@@ -8,7 +9,10 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
   MemberAccessExecutionNode(super.node);
 
   @override
-  Future<bool> doTick(Runtime runtime) async {
+  Future<bool> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
     if (node.children.length != 2) {
       error = 'Member access must have exactly 2 children';
       return true;
@@ -46,7 +50,11 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
     }
 
     // Tick the right node until complete
-    while (!await tickChild(rightNode, targetScope)) {}
+    while (!await tickChild(rightNode, targetScope, cancellationToken)) {
+      if (await runtime.check(cancellationToken)) {
+        return true;
+      }
+    }
 
     return true;
   }

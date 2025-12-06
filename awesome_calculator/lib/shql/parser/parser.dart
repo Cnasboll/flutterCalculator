@@ -193,6 +193,39 @@ class Parser {
       return (ParseTree(Symbols.whileLoop, children), null);
     }
 
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.breakStatement)) {
+      return (ParseTree(Symbols.breakStatement, []), null);
+    }
+
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.continueStatement)) {
+      return (ParseTree(Symbols.continueStatement, []), null);
+    }
+
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.returnStatement)) {
+      var children = <ParseTree>[];
+      if (tokenEnumerator.hasNext &&
+          tokenEnumerator.peek().symbol != Symbols.semiColon) {
+        children.add(parseExpression(tokenEnumerator, constantsSet));
+      }
+      return (ParseTree(Symbols.returnStatement, children), null);
+    }
+
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.compoundStatement)) {
+      List<ParseTree> statements = [];
+      while (!tryConsumeSymbol(tokenEnumerator, Symbols.endKeyword)) {
+        statements.add(parseExpression(tokenEnumerator, constantsSet));
+        if (tokenEnumerator.hasNext &&
+            tokenEnumerator.peek().symbol == Symbols.semiColon) {
+          // Consume the semicolon
+          tokenEnumerator.next();
+        }
+        if (!tokenEnumerator.hasNext) {
+          return (null, 'Expected END to close BEGIN block.');
+        }
+      }
+      return (ParseTree(Symbols.compoundStatement, statements), null);
+    }
+
     if (tryConsumeTokenType(tokenEnumerator, TokenTypes.identifier)) {
       String identifierName = tokenEnumerator.current.lexeme;
       var brackets = tryParseBrackets(tokenEnumerator, constantsSet);

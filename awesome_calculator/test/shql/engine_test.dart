@@ -328,4 +328,49 @@ void main() {
   test('Test while loop', () async {
     expect((await Engine.execute('x := 0; WHILE x < 10 DO x := x + 1;x')), 10);
   });
+
+  test('Test lambda function', () async {
+    expect(
+      (await Engine.execute(
+        "sum(a,b) := a+b; f1(f,a,b,c) := f(a,b)+c; f1(sum, 1,2,3)",
+      )),
+      6,
+    );
+  });
+
+  test('Test lambda function with user function argument', () async {
+    expect(
+      (await Engine.execute(
+        "sum(a,b) := a+b; f1(f,a,b,c) := f(a,b)+c; f1(sum, 10,20,5)",
+      )),
+      35,
+    );
+  });
+
+  test("Test return", () async {
+    expect(
+      (await Engine.execute(
+        "f(x) := BEGIN IF x <= 1 THEN RETURN 1; RETURN x * f(x-1); END; f(5)",
+      )),
+      120,
+    );
+  });
+
+  test("Test break", () async {
+    expect(
+      (await Engine.execute(
+        "x := 0; WHILE TRUE DO BEGIN x := x + 1; IF x = 10 THEN BREAK; END; x",
+      )),
+      10,
+    );
+  });
+
+  test("Test continue", () async {
+    expect(
+      (await Engine.execute(
+        "x := 0; y := 0; WHILE x < 10 DO BEGIN x := x + 1; IF x % 2 = 0 THEN CONTINUE; y := y + 1; END; y",
+      )),
+      5,
+    );
+  });
 }

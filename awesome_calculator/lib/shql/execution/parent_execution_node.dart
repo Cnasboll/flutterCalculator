@@ -1,3 +1,4 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
@@ -5,11 +6,20 @@ abstract class ParentExecutionNode extends ExecutionNode {
   ParentExecutionNode(this.children);
 
   @override
-  Future<bool> doTick(Runtime runtime) async {
+  Future<bool> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    if (await runtime.check(cancellationToken)) {
+      return true;
+    }
     for (int i = 0; i < children.length; i++) {
       var child = children[i];
-      if (!await child.tick(runtime)) {
+      if (!await tickChild(child, runtime, cancellationToken)) {
         return false;
+      }
+      if (await runtime.check(cancellationToken)) {
+        return true;
       }
       if (!onChildComplete(i, child)) {
         return false;
