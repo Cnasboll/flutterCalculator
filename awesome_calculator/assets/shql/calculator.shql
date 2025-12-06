@@ -1,0 +1,36 @@
+
+
+add(a,b):=a+b;
+sub(a,b):=a-b;
+mul(a,b):=a*b;
+div(a,b):=a/b;
+gcd(a, b) := IF b = 0 THEN a ELSE gcd(b, a % b);
+lcm(a, b) := (a * b) / gcd(a, b);
+funcs:=[add, sub, mul, div, gcd, lcm];
+
+
+print("Welcome to Calculator 1.0");
+
+finished:=false;
+while true do begin
+    print("Please select a function:\nEnter:\n1 for 'addition',\n2 for 'subtraction',\n3 for 'muliplication',\n4 for 'division',\n5 for 'greatest common divisor',\n6 for 'least common multiple' or 'Q' to quit");
+    input := readline();
+    if uppercase(input) = "Q" then break;
+    index := int(input)-1;
+    if index < 0 or index > 5 then begin
+        print("please enter a number in the range 1 to 5");
+        continue;
+    end;
+    func := funcs[index];
+    print("Please enter the first number (or q to quit)");
+    input := readline();
+    if uppercase(input) = "Q" then break;
+    a := if index >= 4 then int(input) else double(input);
+
+    print("Please enter the second number (or q to quit)");
+    input := readline();
+    if uppercase(input) = "Q" then break;
+    b := if index >= 4 then int(input) else double(input);
+
+    print("The result is " + string(func(a, b)));
+end

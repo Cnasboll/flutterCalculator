@@ -41,6 +41,7 @@ class _AncientComputerState extends State<AncientComputer>
       final assetFiles = [
         'hello_world.shql',
         'hello_name.shql',
+        'calculator.shql',
         // Add more .shql files here as you add them to assets
       ];
       Directory extDir = Platform.isAndroid
