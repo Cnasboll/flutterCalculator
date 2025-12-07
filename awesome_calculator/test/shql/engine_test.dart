@@ -104,19 +104,13 @@ void main() {
     expect(await Engine.execute('10+13(37)-1'), 490);
   });
 
-  test(
-    'Execute addition, multiplication, subtraction and division',
-    () async {
-      expect(await Engine.execute('10+13*37/2-1'), 249.5);
-    },
-  );
+  test('Execute addition, multiplication, subtraction and division', () async {
+    expect(await Engine.execute('10+13*37/2-1'), 249.5);
+  });
 
-  test(
-    'Execute addition, multiplication, subtraction and division',
-    () async {
-      expect(await Engine.execute('10+13*37/2-1'), 249.5);
-    },
-  );
+  test('Execute addition, multiplication, subtraction and division', () async {
+    expect(await Engine.execute('10+13*37/2-1'), 249.5);
+  });
 
   test(
     'Execute addition, implicit multiplication, subtraction and division',
@@ -360,7 +354,7 @@ void main() {
     );
   });
 
-    test('Calculate library function', () async {
+  test('Calculate library function', () async {
     var (runtime, constantsSet) = await _loadStdLib();
     expect(
       await Engine.calculate(
@@ -371,7 +365,6 @@ void main() {
       2,
     );
   });
-
 
   test('Execute nested function call', () async {
     var (runtime, constantsSet) = await _loadStdLib();

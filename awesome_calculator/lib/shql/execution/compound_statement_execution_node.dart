@@ -12,6 +12,11 @@ class CompoundStatementExecutionNode extends LazyExecutionNode {
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
+    if (_statementIndex == -1) {
+      runtime.pushScope();
+      _statementIndex = 0;
+    }
+
     while (_statementIndex < node.children.length) {
       _currentStatement ??= Engine.createExecutionNode(
         node.children[_statementIndex],
@@ -21,9 +26,11 @@ class CompoundStatementExecutionNode extends LazyExecutionNode {
         return true;
       }
       if (!await tickChild(_currentStatement!, runtime, cancellationToken)) {
+        runtime.popScope();
         return false;
       }
       if (await runtime.check(cancellationToken)) {
+        runtime.popScope();
         return true;
       }
 
@@ -31,9 +38,10 @@ class CompoundStatementExecutionNode extends LazyExecutionNode {
       _currentStatement = null;
     }
     _currentStatement = null;
+    runtime.popScope();
     return true;
   }
 
-  int _statementIndex = 0;
+  int _statementIndex = -1;
   ExecutionNode? _currentStatement;
 }

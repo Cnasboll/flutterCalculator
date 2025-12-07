@@ -216,4 +216,35 @@ void main() {
 
     expect(v.length, 6);
   });
+
+  test('Tokenize long comment', () {
+    var program = '''--
+-- calculator.shql
+--
+-- A collection of advanced mathematical functions written in SHQL.
+-- This script demonstrates user-defined recursive functions and basic arithmetic.
+--
+''';
+
+    var v = Tokenizer.tokenize(program).toList();
+    expect(v.length, 0);
+  });
+
+  test('Tokenize long comment and symbol', () {
+    var program = '''--
+-- calculator.shql
+--
+-- A collection of advanced mathematical functions written in SHQL.
+-- This script demonstrates user-defined recursive functions and basic arithmetic.
+--
+PI
+''';
+
+    var v = Tokenizer.tokenize(program).toList();
+    expect(v.length, 1);
+    expect(v[0].tokenType, TokenTypes.identifier);
+    expect(v[0].lexeme, 'PI');
+    expect(v[0].lineNumber, 7);
+    expect(v[0].columnNumber, 1);
+  });
 }

@@ -4,11 +4,14 @@ import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class UserFunctionExecutionNode extends ExecutionNode {
   UserFunctionExecutionNode(
+    this.scopeIndex,
     this.argumentIdentifiers,
     this.arguments,
     this.body,
   );
 
+  List<Scope>? _stashedScope;
+  final int scopeIndex;
   final List<int> argumentIdentifiers;
   final List<ExecutionNode> arguments;
   final ExecutionNode body;
@@ -36,6 +39,7 @@ class UserFunctionExecutionNode extends ExecutionNode {
         ++_argumentIndex;
       }
 
+      _stashedScope = runtime.stash(scopeIndex);
       var (success, error) = runtime.pushScope();
       if (!success) {
         // Handle the error, e.g., throw an exception or return false
@@ -61,12 +65,16 @@ class UserFunctionExecutionNode extends ExecutionNode {
         if (returnTarget.hasReturnValue) {
           result = returnTarget.returnValue;
         }
+        runtime.popScope();
+        runtime.restore(_stashedScope!);
+        runtime.popReturnTarget();
         return true;
       }
       return false;
     }
 
     runtime.popScope();
+    runtime.restore(_stashedScope!);
     runtime.popReturnTarget();
     return true;
   }

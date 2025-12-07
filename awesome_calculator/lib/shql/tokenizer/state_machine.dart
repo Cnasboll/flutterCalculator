@@ -154,7 +154,9 @@ class StateMachine {
         }
       }
     } finally {
-      _columnNumber++;
+      if (!isNewline(charCode)) {
+        _columnNumber++;
+      }
     }
   }
 

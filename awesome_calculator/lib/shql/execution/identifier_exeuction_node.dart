@@ -31,13 +31,16 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     // Try to resolve identifier (variables shadow constants, walks parent chain)
     var (value, isValue, _) = runtime.resolveIdentifier(identifier);
     var resolved = isValue;
-    var (userFunction, __) = resolved ? (null, null) : runtime.getUserFunction(identifier);
+    var (userFunction, scopeIndex) = resolved
+        ? (null, null)
+        : runtime.getUserFunction(identifier);
     var nullaryFunction = resolved ? null : runtime.getNullaryFunction(name);
     resolved = resolved || nullaryFunction != null;
     var unaryFunction = resolved ? null : runtime.getUnaryFunction(identifier);
     resolved = resolved || unaryFunction != null;
-    var binaryFunction =
-        resolved ? null : runtime.getBinaryFunction(identifier);
+    var binaryFunction = resolved
+        ? null
+        : runtime.getBinaryFunction(identifier);
     resolved = resolved || binaryFunction != null;
 
     // The child must be tuple or list if present
@@ -56,6 +59,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
           name,
           value,
           userFunction,
+          scopeIndex,
           nullaryFunction,
           unaryFunction,
           binaryFunction,
@@ -81,6 +85,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
         isValue,
         name,
         value,
+        null,
         null,
         nullaryFunction,
         null,
@@ -112,6 +117,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     String name,
     value,
     UserFunction? userFunction,
+    int? scopeIndex,
     Function()? nullaryFunction,
     Function(dynamic p1)? unaryFunction,
     Function(dynamic p1, dynamic p2)? binaryFunction,
@@ -143,6 +149,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
       }
 
       return UserFunctionExecutionNode(
+        scopeIndex!,
         userFunction.argumentIdentifiers,
         argumentNodes,
         Engine.createExecutionNode(userFunction.body)!,

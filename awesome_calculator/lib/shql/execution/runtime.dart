@@ -17,7 +17,7 @@ class UserFunction {
   });
 }
 
-class _Scope {
+class Scope {
   final Map<int, dynamic> variables = {};
   final Map<int, UserFunction> userFunctions = {};
 }
@@ -85,7 +85,7 @@ class Runtime {
   final Map<String, Function()> _nullaryFunctions = {};
   late final Map<int, Function(dynamic p1)> _unaryFunctions;
   late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
-  final List<_Scope> _scopeStack = [];
+  final List<Scope> _scopeStack = [];
   final List<BreakTarget> _breakTargets = [];
   final List<ReturnTarget> _returnTargets = [];
   final Map<int, Runtime> _subModelScopes = {};
@@ -108,7 +108,7 @@ class Runtime {
     _identifiers = constantsSet?.identifiers ?? ConstantsTable();
     _unaryFunctions = Map.from(unaryFunctions);
     _binaryFunctions = Map.from(binaryFunctions);
-    _scopeStack.add(_Scope()); // Add the global scope
+    _scopeStack.add(Scope()); // Add the global scope
     hookUpConsole();
   }
 
@@ -132,7 +132,7 @@ class Runtime {
   Runtime._subModel(Runtime parent) {
     _constants = ConstantsTable(parent: parent._constants.root());
     _identifiers = parent._identifiers;
-    _scopeStack.add(_Scope()); // Sub-models have their own global scope
+    _scopeStack.add(Scope()); // Sub-models have their own global scope
   }
 
   ConstantsTable<dynamic> get constants {
@@ -150,7 +150,7 @@ class Runtime {
         'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
       );
     }
-    _scopeStack.add(_Scope());
+    _scopeStack.add(Scope());
     return (true, null);
   }
 
@@ -160,8 +160,8 @@ class Runtime {
     }
   }
 
-  List<_Scope> stash(int toScopeIndex) {
-    final stashedScopes = <_Scope>[];
+  List<Scope> stash(int toScopeIndex) {
+    final stashedScopes = <Scope>[];
     if (toScopeIndex < 0 || toScopeIndex >= _scopeStack.length - 1) {
       return stashedScopes;
     }
@@ -172,7 +172,7 @@ class Runtime {
     return stashedScopes;
   }
 
-  void restore(List<_Scope> stashedScopes) {
+  void restore(List<Scope> stashedScopes) {
     for (final scope in stashedScopes.reversed) {
       _scopeStack.add(scope);
     }
