@@ -48,7 +48,7 @@ class UserFunctionExecutionNode extends ExecutionNode {
         if (argument is UserFunction) {
           runtime.setUserFunction(argumentIdentifiers[i], argument);
         } else {
-          runtime.assignVariable(argumentIdentifiers[i], argument);
+          runtime.assignVariable(argumentIdentifiers[i], argument, true);
         }
       }
       _returnTarget = runtime.pushReturnTarget();

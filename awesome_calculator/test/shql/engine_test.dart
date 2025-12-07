@@ -56,92 +56,92 @@ void main() {
     expect(constantsSet.getConstantByIndex(p.children[1].qualifier!), 2);
   });
 
-  test('Calculate addition', () async {
+  test('Execute addition', () async {
     expect(await Engine.execute('10+2'), 12);
   });
-  test('Calculate addition and multiplication', () async {
+  test('Execute addition and multiplication', () async {
     expect(await Engine.execute('10+13*37+1'), 492);
   });
 
-  test('Calculate implicit constant multiplication with parenthesis', () async {
+  test('Execute implicit constant multiplication with parenthesis', () async {
     expect(await Engine.execute('ANSWER(2)'), 84);
   });
 
   test(
-    'Calculate implicit constant multiplication with parenthesis first',
+    'Execute implicit constant multiplication with parenthesis first',
     () async {
       expect(await Engine.execute('(2)ANSWER'), 84);
     },
   );
 
   test(
-    'Calculate implicit constant multiplication with constant within parenthesis first',
+    'Execute implicit constant multiplication with constant within parenthesis first',
     () async {
       expect(await Engine.execute('(ANSWER)2'), 84);
     },
   );
 
-  test('Calculate implicit multiplication with parenthesis', () async {
+  test('Execute implicit multiplication with parenthesis', () async {
     expect(await Engine.execute('2(3)'), 6);
   });
 
-  test('Calculate addition and multiplication with parenthesis', () async {
+  test('Execute addition and multiplication with parenthesis', () async {
     expect(await Engine.execute('10+13*(37+1)'), 504);
   });
 
   test(
-    'Calculate addition and implicit multiplication with parenthesis',
+    'Execute addition and implicit multiplication with parenthesis',
     () async {
       expect(await Engine.execute('10+13(37+1)'), 504);
     },
   );
 
-  test('Calculate addition, multiplication and subtraction', () async {
+  test('Execute addition, multiplication and subtraction', () async {
     expect(await Engine.execute('10+13*37-1'), 490);
   });
 
-  test('Calculate addition, implicit multiplication and subtraction', () async {
+  test('Execute addition, implicit multiplication and subtraction', () async {
     expect(await Engine.execute('10+13(37)-1'), 490);
   });
 
   test(
-    'Calculate addition, multiplication, subtraction and division',
+    'Execute addition, multiplication, subtraction and division',
     () async {
       expect(await Engine.execute('10+13*37/2-1'), 249.5);
     },
   );
 
   test(
-    'Calculate addition, multiplication, subtraction and division',
+    'Execute addition, multiplication, subtraction and division',
     () async {
       expect(await Engine.execute('10+13*37/2-1'), 249.5);
     },
   );
 
   test(
-    'Calculate addition, implicit multiplication, subtraction and division',
+    'Execute addition, implicit multiplication, subtraction and division',
     () async {
       expect(await Engine.execute('10+13(37)/2-1'), 249.5);
     },
   );
 
-  test('Calculate modulus', () async {
+  test('Execute modulus', () async {
     expect(await Engine.execute('9%2'), 1);
   });
 
-  test('Calculate equality true', () async {
+  test('Execute equality true', () async {
     expect(await Engine.execute('5*2 = 2+8'), true);
   });
 
-  test('Calculate equality false', () async {
+  test('Execute equality false', () async {
     expect(await Engine.execute('5*2 = 1+8'), false);
   });
 
-  test('Calculate not equal true', () async {
+  test('Execute not equal true', () async {
     expect(await Engine.execute('5*2 <> 1+8'), true);
   });
 
-  test('Calculate not equal true with exclamation equals', () async {
+  test('Execute not equal true with exclamation equals', () async {
     expect(await Engine.execute('5*2 != 1+8'), true);
   });
 
@@ -246,62 +246,62 @@ void main() {
     );
   });
 
-  test('Calculate not equal false', () async {
+  test('Execute not equal false', () async {
     expect(await Engine.execute('5*2 <> 2+8'), false);
   });
 
-  test('Calculate not equal false with exclamation equals', () async {
+  test('Execute not equal false with exclamation equals', () async {
     expect(await Engine.execute('5*2 != 2+8'), false);
   });
 
-  test('Calculate less than false', () async {
+  test('Execute less than false', () async {
     expect(await Engine.execute('10<1'), false);
   });
 
-  test('Calculate less than true', () async {
+  test('Execute less than true', () async {
     expect(await Engine.execute('1<10'), true);
   });
 
-  test('Calculate less than or equal false', () async {
+  test('Execute less than or equal false', () async {
     expect(await Engine.execute('10<=1'), false);
   });
 
-  test('Calculate less than or equal true', () async {
+  test('Execute less than or equal true', () async {
     expect(await Engine.execute('1<=10'), true);
   });
 
-  test('Calculate greater than false', () async {
+  test('Execute greater than false', () async {
     expect(await Engine.execute('1>10'), false);
   });
 
-  test('Calculate greater than true', () async {
+  test('Execute greater than true', () async {
     expect(await Engine.execute('10>1'), true);
   });
 
-  test('Calculate greater than or equal false', () async {
+  test('Execute greater than or equal false', () async {
     expect(await Engine.execute('1>=10'), false);
   });
 
-  test('Calculate greater than or equal true', () async {
+  test('Execute greater than or equal true', () async {
     expect(await Engine.execute('10>=1'), true);
   });
 
-  test('Calculate some boolean algebra and true', () async {
+  test('Execute some boolean algebra and true', () async {
     expect(await Engine.execute('1<10 AND 2<9'), true);
     expect(await Engine.execute('1<10 OCH 2<9'), true);
   });
 
-  test('Calculate some boolean algebra and false', () async {
+  test('Execute some boolean algebra and false', () async {
     expect(await Engine.execute('1>10 AND 2<9'), false);
     expect(await Engine.execute('1>10 OCH 2<9'), false);
   });
 
-  test('Calculate some boolean algebra or true', () async {
+  test('Execute some boolean algebra or true', () async {
     expect(await Engine.execute('1>10 OR 2<9'), true);
     expect(await Engine.execute('1>10 ELLER 2<9'), true);
   });
 
-  test('Calculate some boolean algebra xor true', () async {
+  test('Execute some boolean algebra xor true', () async {
     expect(await Engine.execute('1>10 XOR 2<9'), true);
     expect(await Engine.execute('1>10 ANTINGEN_ELLER 2<9'), true);
   });
@@ -320,23 +320,23 @@ void main() {
     expect(await Engine.execute('!11'), false);
   });
 
-  test('Calculate unary minus', () async {
+  test('Execute unary minus', () async {
     expect(await Engine.execute('-5+11'), 6);
   });
 
-  test('Calculate unary plus', () async {
+  test('Execute unary plus', () async {
     expect(await Engine.execute('+5+11'), 16);
   });
 
-  test('Calculate with constants', () async {
+  test('Execute with constants', () async {
     expect(await Engine.execute('PI * 2'), 3.1415926535897932 * 2);
   });
 
-  test('Calculate with lowercase constants', () async {
+  test('Execute with lowercase constants', () async {
     expect(await Engine.execute('pi * 2'), 3.1415926535897932 * 2);
   });
 
-  test('Calculate with functions', () async {
+  test('Execute with functions', () async {
     var (runtime, constantsSet) = await _loadStdLib();
     expect(
       await Engine.execute(
@@ -348,7 +348,7 @@ void main() {
     );
   });
 
-  test('Calculate with two functions', () async {
+  test('Execute with two functions', () async {
     var (runtime, constantsSet) = await _loadStdLib();
     expect(
       await Engine.execute(
@@ -360,7 +360,20 @@ void main() {
     );
   });
 
-  test('Calculate nested function call', () async {
+    test('Calculate library function', () async {
+    var (runtime, constantsSet) = await _loadStdLib();
+    expect(
+      await Engine.calculate(
+        'SQRT(4)',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
+      2,
+    );
+  });
+
+
+  test('Execute nested function call', () async {
     var (runtime, constantsSet) = await _loadStdLib();
     expect(
       await Engine.execute(
@@ -372,7 +385,7 @@ void main() {
     );
   });
 
-  test('Calculate nested function call with expression', () async {
+  test('Execute nested function call with expression', () async {
     var (runtime, constantsSet) = await _loadStdLib();
     expect(
       await Engine.execute(
@@ -384,10 +397,10 @@ void main() {
     );
   });
 
-  test('Calculate two expressions', () async {
+  test('Execute two expressions', () async {
     expect(await Engine.execute('10;11'), 11);
   });
-  test('Calculate two expressions with final semicolon', () async {
+  test('Execute two expressions with final semicolon', () async {
     expect(await Engine.execute('10;11;'), 11);
   });
 

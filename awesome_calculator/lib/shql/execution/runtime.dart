@@ -279,8 +279,8 @@ class Runtime {
     assignVariable(identifier, value);
   }
 
-  void assignVariable(int identifier, dynamic value) {
-    if (readonly) {
+  void assignVariable(int identifier, dynamic value, [bool sandbox = false]) {
+    if (readonly && !sandbox) {
       return;
     }
     _scopeStack.last.variables[identifier] = value;
