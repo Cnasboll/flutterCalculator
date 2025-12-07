@@ -208,6 +208,46 @@ class Parser {
       return (ParseTree(Symbols.whileLoop, children), null);
     }
 
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.repeatUntilLoop)) {
+      var children = <ParseTree>[
+        parseExpression(tokenEnumerator, constantsSet),
+      ];
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.untilKeyword)) {
+        return (null, 'Expected UNTIL after REPEAT statement.');
+      }
+
+      children.add(parseExpression(tokenEnumerator, constantsSet));
+
+      return (ParseTree(Symbols.repeatUntilLoop, children), null);
+    }
+
+    if (tryConsumeSymbol(tokenEnumerator, Symbols.forLoop)) {
+      var children = <ParseTree>[
+        parseExpression(tokenEnumerator, constantsSet),
+      ];
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.toKeyword)) {
+        return (null, 'Expected TO after FOR statement.');
+      }
+
+      children.add(parseExpression(tokenEnumerator, constantsSet));
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.stepKeyword)) {
+        return (null, 'Expected STEP after FOR statement.');
+      }
+
+      children.add(parseExpression(tokenEnumerator, constantsSet));
+
+      if (!tryConsumeSymbol(tokenEnumerator, Symbols.doKeyword)) {
+        return (null, 'Expected DO after WHILE condition.');
+      }
+
+      children.add(parseExpression(tokenEnumerator, constantsSet));
+
+      return (ParseTree(Symbols.forLoop, children), null);
+    }
+
     if (tryConsumeSymbol(tokenEnumerator, Symbols.breakStatement)) {
       return (ParseTree(Symbols.breakStatement, []), null);
     }

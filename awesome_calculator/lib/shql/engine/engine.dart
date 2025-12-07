@@ -19,6 +19,7 @@ import 'package:awesome_calculator/shql/execution/constant_node.dart';
 import 'package:awesome_calculator/shql/execution/continue_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/for_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/if_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
@@ -34,6 +35,7 @@ import 'package:awesome_calculator/shql/execution/relational/greater_than_or_equ
 import 'package:awesome_calculator/shql/execution/relational/less_than_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/less_than_or_equal_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/relational/not_equality_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/repeat_until_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/return_statement_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
@@ -143,7 +145,7 @@ class Engine {
       return AprioriExecutionNode(null);
     }
 
-    var executionNode = tryCreateProgramExecutionNode(parseTree);
+    ExecutionNode? executionNode = tryCreateProgramExecutionNode(parseTree);
     if (executionNode != null) {
       return executionNode;
     }
@@ -164,6 +166,16 @@ class Engine {
     }
 
     executionNode = tryCreateWhileLoopExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateRepeatUntilLoopExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateForLoopExecutionNode(parseTree);
     if (executionNode != null) {
       return executionNode;
     }
@@ -196,8 +208,9 @@ class Engine {
       return MemberAccessExecutionNode(parseTree);
     }
 
-    if (parseTree.symbol == Symbols.assignment) {
-      return AssignmentExecutionNode(parseTree);
+    executionNode = tryCreateAssignmentExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
     }
 
     return createBinaryOperatorExecutionNode(parseTree);
@@ -248,7 +261,9 @@ class Engine {
     }
   }
 
-  static ExecutionNode? tryCreateProgramExecutionNode(ParseTree parseTree) {
+  static ProgramExecutionNode? tryCreateProgramExecutionNode(
+    ParseTree parseTree,
+  ) {
     if (parseTree.symbol != Symbols.program) {
       return null;
     }
@@ -310,21 +325,43 @@ class Engine {
     }
   }
 
-  static ExecutionNode? tryCreateIfStatementExecutionNode(ParseTree parseTree) {
+  static IfStatementExecutionNode? tryCreateIfStatementExecutionNode(
+    ParseTree parseTree,
+  ) {
     if (parseTree.symbol != Symbols.ifStatement) {
       return null;
     }
     return IfStatementExecutionNode(parseTree);
   }
 
-  static ExecutionNode? tryCreateWhileLoopExecutionNode(ParseTree parseTree) {
+  static WhileLoopExecutionNode? tryCreateWhileLoopExecutionNode(
+    ParseTree parseTree,
+  ) {
     if (parseTree.symbol != Symbols.whileLoop) {
       return null;
     }
     return WhileLoopExecutionNode(parseTree);
   }
 
-  static ExecutionNode? tryCreateBreakStatementExecutionNode(
+  static RepeatUntilLoopExecutionNode? tryCreateRepeatUntilLoopExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.repeatUntilLoop) {
+      return null;
+    }
+    return RepeatUntilLoopExecutionNode(parseTree);
+  }
+
+  static ForLoopExecutionNode? tryCreateForLoopExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.forLoop) {
+      return null;
+    }
+    return ForLoopExecutionNode(parseTree);
+  }
+
+  static BreakStatementExecutionNode? tryCreateBreakStatementExecutionNode(
     ParseTree parseTree,
   ) {
     if (parseTree.symbol != Symbols.breakStatement) {
@@ -333,16 +370,15 @@ class Engine {
     return BreakStatementExecutionNode();
   }
 
-  static ExecutionNode? tryCreateContinueStatementExecutionNode(
-    ParseTree parseTree,
-  ) {
+  static ContinueStatementExecutionNode?
+  tryCreateContinueStatementExecutionNode(ParseTree parseTree) {
     if (parseTree.symbol != Symbols.continueStatement) {
       return null;
     }
     return ContinueStatementExecutionNode();
   }
 
-  static ExecutionNode? tryCreateReturnStatementExecutionNode(
+  static ReturnStatementExecutionNode? tryCreateReturnStatementExecutionNode(
     ParseTree parseTree,
   ) {
     if (parseTree.symbol != Symbols.returnStatement) {
@@ -351,12 +387,20 @@ class Engine {
     return ReturnStatementExecutionNode(parseTree);
   }
 
-  static ExecutionNode? tryCreateCompoundStatementExecutionNode(
-    ParseTree parseTree,
-  ) {
+  static CompoundStatementExecutionNode?
+  tryCreateCompoundStatementExecutionNode(ParseTree parseTree) {
     if (parseTree.symbol != Symbols.compoundStatement) {
       return null;
     }
     return CompoundStatementExecutionNode(parseTree);
+  }
+
+  static AssignmentExecutionNode? tryCreateAssignmentExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.assignment) {
+      return null;
+    }
+    return AssignmentExecutionNode(parseTree);
   }
 }

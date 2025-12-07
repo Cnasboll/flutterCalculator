@@ -95,7 +95,7 @@ class _AncientComputerState extends State<AncientComputer>
     });
   }
 
-  Future<void> loadStandardLibrary() async   {
+  Future<void> loadStandardLibrary() async {
     final stdlibCode = await rootBundle.loadString('assets/shql/stdlib.shql');
     terminalPrint("Loading standard library...");
     terminalPrint(stdlibCode);

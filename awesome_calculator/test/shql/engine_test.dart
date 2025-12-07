@@ -7,6 +7,43 @@ import 'package:awesome_calculator/shql/tokenizer/token.dart';
 import 'package:awesome_calculator/shql/tokenizer/tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Future<(Runtime, ConstantsSet)> _loadStdLib() async {
+  var constantsSet = Runtime.prepareConstantsSet();
+  var runtime = Runtime.prepareRuntime(constantsSet);
+  final stdlibCode = """
+--- External unary fuctions
+SIN(a) := _EXTERN("SIN", [a]);
+COS(a) := _EXTERN("COS", [a]);
+TAN(a) := _EXTERN("TAN", [a]);
+ACOS(a) := _EXTERN("ACOS", [a]);
+ASIN(a) := _EXTERN("ASIN", [a]);
+ATAN(a) := _EXTERN("ATAN", [a]);
+SQRT(a) := _EXTERN("SQRT", [a]);
+EXP(a) := _EXTERN("EXP", [a]);
+LOG(a) := _EXTERN("LOG", [a]);
+LOWERCASE(a) := _EXTERN("LOWERCASE", [a]);
+UPPERCASE(a) := _EXTERN("UPPERCASE", [a]);
+INT(a) := _EXTERN("INT", [a]);
+DOUBLE(a) := _EXTERN("DOUBLE", [a]);
+STRING(a) := _EXTERN("STRING", [a]);
+ROUND(a) := _EXTERN("ROUND", [a]);
+LENGTH(a) := _EXTERN("LENGTH", [a]);
+
+-- External binary functions
+MIN(a,b) := _EXTERN("MIN", [a,b]);
+MAX(a,b) := _EXTERN("MAX", [a,b]);
+ATAN2(a,b) := _EXTERN("ATAN2", [a,b]);
+POW(a,b) := _EXTERN("POW", [a,b]);
+DIM(a,b) := _EXTERN("DIM", [a,b]);
+""";
+  await Engine.execute(
+    stdlibCode,
+    runtime: runtime,
+    constantsSet: constantsSet,
+  );
+  return (runtime, constantsSet);
+}
+
 void main() {
   test('Parse addition', () {
     var v = Tokenizer.tokenize('10+2').toList();
@@ -146,12 +183,21 @@ void main() {
   });
 
   test('Evaluate lower case in list true', () async {
+    var (runtime, constantsSet) = await _loadStdLib();
     expect(
-      await Engine.execute('lowercase("Robin") in  ["batman", "robin"]'),
+      await Engine.execute(
+        'lowercase("Robin") in  ["batman", "robin"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
       true,
     );
     expect(
-      await Engine.execute('lowercase("Batman") in  ["batman", "robin"]'),
+      await Engine.execute(
+        'lowercase("Batman") in  ["batman", "robin"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
       true,
     );
   });
@@ -165,23 +211,36 @@ void main() {
   });
 
   test('Evaluate lower case in list false', () async {
+    var (runtime, constantsSet) = await _loadStdLib();
     expect(
-      await Engine.execute('lowercase("robin") in  ["super man", "batman"]'),
+      await Engine.execute(
+        'lowercase("robin") in  ["super man", "batman"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
       false,
     );
     expect(
       await Engine.execute(
         'lowercase("robin") finns_i  ["super man", "batman"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
       ),
       false,
     );
     expect(
-      await Engine.execute('lowercase("superman") in  ["super man", "batman"]'),
+      await Engine.execute(
+        'lowercase("superman") in  ["super man", "batman"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
       false,
     );
     expect(
       await Engine.execute(
         'lowercase("superman") finns_i  ["super man", "batman"]',
+        runtime: runtime,
+        constantsSet: constantsSet,
       ),
       false,
     );
@@ -278,19 +337,51 @@ void main() {
   });
 
   test('Calculate with functions', () async {
-    expect(await Engine.execute('POW(2,2)'), 4);
+    var (runtime, constantsSet) = await _loadStdLib();
+    expect(
+      await Engine.execute(
+        'POW(2,2)',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
+      4,
+    );
   });
 
   test('Calculate with two functions', () async {
-    expect(await Engine.execute('POW(2,2)+SQRT(4)'), 6);
+    var (runtime, constantsSet) = await _loadStdLib();
+    expect(
+      await Engine.execute(
+        'POW(2,2)+SQRT(4)',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
+      6,
+    );
   });
 
   test('Calculate nested function call', () async {
-    expect(await Engine.execute('SQRT(POW(2,2))'), 2);
+    var (runtime, constantsSet) = await _loadStdLib();
+    expect(
+      await Engine.execute(
+        'SQRT(POW(2,2))',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
+      2,
+    );
   });
 
   test('Calculate nested function call with expression', () async {
-    expect(await Engine.execute('SQRT(POW(2,2)+10)'), 3.7416573867739413);
+    var (runtime, constantsSet) = await _loadStdLib();
+    expect(
+      await Engine.execute(
+        'SQRT(POW(2,2)+10)',
+        runtime: runtime,
+        constantsSet: constantsSet,
+      ),
+      3.7416573867739413,
+    );
   });
 
   test('Calculate two expressions', () async {
