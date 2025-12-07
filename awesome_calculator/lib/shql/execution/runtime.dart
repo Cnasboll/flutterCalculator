@@ -420,12 +420,33 @@ class Runtime {
     await clsFunction?.call();
   }
 
+  extern(name, args) {
+    /*var nullaryFunction  = nullaryFunctions[name];
+    if (nullaryFunction != null) {
+      return nullaryFunction();
+    }*/
+    var unaryFunction = unaryFunctions[name];
+    if (unaryFunction != null) {
+      if (args is List && args.length == 1) {
+        return unaryFunction(args[0]);
+      }
+    }
+    var binaryFunction = binaryFunctions[name];
+    if (binaryFunction != null) {
+      if (args is List && args.length == 2) {
+        return binaryFunction(args[0], args[1]);
+      }
+    }
+    return null;
+  }
+
   void hookUpConsole() {
     setUnaryFunction("PRINT", print);
     setUnaryFunction("PROMPT", prompt);
     setNullaryFunction("READLINE", readLine);
     setBinaryFunction("PLOT", plot);
     setNullaryFunction("CLS", cls);
+    setBinaryFunction("_EXTERN", extern);
   }
 
   static ConstantsSet prepareConstantsSet() {
@@ -439,26 +460,26 @@ class Runtime {
     }
 
     // Register mathematical functions
-    for (var entry in unaryFunctions.entries) {
+    /*for (var entry in unaryFunctions.entries) {
       constantsSet.includeIdentifier(entry.key);
     }
     for (var entry in binaryFunctions.entries) {
       constantsSet.includeIdentifier(entry.key);
-    }
+    }*/
     return constantsSet;
   }
 
   static Runtime prepareRuntime([ConstantsSet? constantsSet]) {
     constantsSet ??= prepareConstantsSet();
     final unaryFns = <int, Function(dynamic p1)>{};
-    for (final entry in unaryFunctions.entries) {
+    /*for (final entry in unaryFunctions.entries) {
       unaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }
+    }*/
 
     final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
-    for (final entry in binaryFunctions.entries) {
+    /*for (final entry in binaryFunctions.entries) {
       binaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }
+    }*/
 
     var runtime = Runtime(
       constantsSet: constantsSet,

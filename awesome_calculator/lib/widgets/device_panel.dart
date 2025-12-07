@@ -40,6 +40,7 @@ class _AncientComputerState extends State<AncientComputer>
     try {
       // List all .shql files in assets manually (since Flutter can't list assets at runtime)
       final assetFiles = [
+        'stdlib.shql',
         'hello_world.shql',
         'hello_name.shql',
         'calculator.shql',
@@ -94,12 +95,28 @@ class _AncientComputerState extends State<AncientComputer>
     });
   }
 
+  Future<void> loadStandardLibrary() async   {
+    final stdlibCode = await rootBundle.loadString('assets/shql/stdlib.shql');
+    terminalPrint("Loading standard library...");
+    terminalPrint(stdlibCode);
+    await Engine.execute(
+      stdlibCode,
+      runtime: runtime,
+      constantsSet: constantsSet,
+      cancellationToken: _cancellationToken,
+    );
+    terminalPrint("Standard library loaded.");
+    _printStartupBanner();
+  }
+
   void resetEngine() {
     setState(() {
       constantsSet = Runtime.prepareConstantsSet();
       runtime = Runtime.prepareRuntime(constantsSet);
       runtime.readlineFunction = () async => await readline();
-
+      runtime.promptFunction = (String prompt) async {
+        return await readline(prompt);
+      };
       runtime.printFunction = (p1) => terminalPrint(p1.toString());
 
       runtime.clsFunction = () async {
@@ -109,35 +126,6 @@ class _AncientComputerState extends State<AncientComputer>
       };
 
       runtime.plotFunction = (xVector, yVector) async {
-        /*if (args.length != 2) {
-          throw Exception(
-              "plot() requires 2 arguments: xVector and yVector");
-        }*/
-
-        /*final shqlFunction = args[0];
-        if (shqlFunction is! UserFunction) {
-          throw Exception("Argument 1 to plot() must be a function");
-        }
-
-        final x1 = (args[1] as num).toDouble();
-        final x2 = (args[2] as num).toDouble();
-        final steps = (args[3] as num).toInt();
-
-        if (steps <= 1) {
-          throw Exception("Plot steps must be greater than 1");
-        }
-
-        final points = <Offset>[];
-        final stepSize = (x2 - x1) / (steps - 1);
-
-        for (int i = 0; i < steps; i++) {
-          final x = x1 + i * stepSize;
-          final y = await shqlFunction.call([x], runtime.child());
-          if (y is num) {
-            points.add(Offset(x, y.toDouble()));
-          }
-        }*/
-
         final points = <Offset>[];
         if (xVector is List && yVector is List) {
           final length = xVector.length < yVector.length
@@ -159,6 +147,11 @@ class _AncientComputerState extends State<AncientComputer>
       };
     });
     _printStartupBanner();
+    _initializeAsync();
+  }
+
+  Future<void> _initializeAsync() async {
+    await loadStandardLibrary();
   }
 
   late ConstantsSet constantsSet;
@@ -244,6 +237,7 @@ class _AncientComputerState extends State<AncientComputer>
     _cancellationToken = CancellationToken();
     _copyAllShqlAssetsToExternalStorage();
     resetEngine();
+
     _cursorController = AnimationController(
       vsync: this,
       duration: _cursorBlinkDuration,
