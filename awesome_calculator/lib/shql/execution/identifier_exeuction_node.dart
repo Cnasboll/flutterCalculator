@@ -73,9 +73,24 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       return null;
     }
 
-    if (nullaryFunction != null ||
-        unaryFunction != null ||
-        binaryFunction != null) {
+    if (nullaryFunction != null &&
+        binaryFunction == null &&
+        unaryFunction == null &&
+        userFunction == null) {
+      return createFunctionCallExecutionNode(
+        runtime,
+        isValue,
+        name,
+        value,
+        null,
+        nullaryFunction,
+        null,
+        null,
+        [],
+      );
+    }
+
+    if (unaryFunction != null || binaryFunction != null) {
       error = "Missing arguments list to function $name().";
       return null;
     }

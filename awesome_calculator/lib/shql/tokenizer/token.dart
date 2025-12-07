@@ -1,5 +1,3 @@
-import 'package:flutter/semantics.dart';
-
 enum Symbols {
   none,
   program,

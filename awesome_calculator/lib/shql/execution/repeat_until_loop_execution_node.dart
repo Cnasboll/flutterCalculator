@@ -1,6 +1,5 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
-import 'package:awesome_calculator/shql/execution/assignment_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
@@ -31,7 +30,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
         runtime.popBreakTarget();
         return true;
       }
-      
+
       _bodyNode = null;
       if (bodyEvaluated || continued) {
         _conditionNode = Engine.createExecutionNode(node.children[1]);
