@@ -25,8 +25,7 @@ class SoundManager {
     try {
       await _player.play(AssetSource(assetPath));
     } catch (e) {
-      // Silently fail if sound cannot be played
-      print('Error playing sound $assetPath: $e');
+      // print('Error playing sound $assetPath: $e');
     }
   }
 
@@ -38,7 +37,7 @@ class SoundManager {
       await _player.setVolume(volume.clamp(0.0, 1.0));
       await _player.play(AssetSource(assetPath));
     } catch (e) {
-      print('Error playing sound $assetPath: $e');
+      // print('Error playing sound $assetPath: $e');
     }
   }
 
