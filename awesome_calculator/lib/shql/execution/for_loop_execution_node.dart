@@ -72,7 +72,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
       _initialIteratorValue = _initializationNode!.result;
     }
 
-    var (currentIteratorValue, _) = runtime.resolveIdentifier(
+    var (currentIteratorValue, _, __) = runtime.resolveIdentifier(
       _variableIdentifier,
     );
 

@@ -160,6 +160,24 @@ class Runtime {
     }
   }
 
+  List<_Scope> stash(int toScopeIndex) {
+    final stashedScopes = <_Scope>[];
+    if (toScopeIndex < 0 || toScopeIndex >= _scopeStack.length - 1) {
+      return stashedScopes;
+    }
+
+    while (_scopeStack.length - 1 > toScopeIndex) {
+      stashedScopes.add(_scopeStack.removeLast());
+    }
+    return stashedScopes;
+  }
+
+  void restore(List<_Scope> stashedScopes) {
+    for (final scope in stashedScopes.reversed) {
+      _scopeStack.add(scope);
+    }
+  }
+
   void popChildScopes() {
     while (_scopeStack.length > 1) {
       popScope();
@@ -253,13 +271,14 @@ class Runtime {
     return scope;
   }
 
-  dynamic getVariable(int identifier) {
-    for (final scope in _scopeStack.reversed) {
+  (dynamic, int?) getVariable(int identifier) {
+    for (var i = _scopeStack.length - 1; i >= 0; i--) {
+      final scope = _scopeStack[i];
       if (scope.variables.containsKey(identifier)) {
-        return scope.variables[identifier];
+        return (scope.variables[identifier], i);
       }
     }
-    return null;
+    return (null, null);
   }
 
   void setVariable(int identifier, dynamic value) {
@@ -337,13 +356,14 @@ class Runtime {
     return false;
   }
 
-  UserFunction? getUserFunction(int identifier) {
-    for (final scope in _scopeStack.reversed) {
+  (UserFunction?, int?) getUserFunction(int identifier) {
+    for (var i = _scopeStack.length - 1; i >= 0; i--) {
+      final scope = _scopeStack[i];
       if (scope.userFunctions.containsKey(identifier)) {
-        return scope.userFunctions[identifier];
+        return (scope.userFunctions[identifier], i);
       }
     }
-    return null;
+    return (null, null);
   }
 
   void setUserFunction(int identifier, UserFunction function) {
@@ -364,21 +384,21 @@ class Runtime {
   }
 
   /// Resolves an identifier to its value, checking variables first (current scope, then parents),
-  /// then constants (current scope, then parents). Returns (value, found) tuple.
-  (dynamic, bool) resolveIdentifier(int identifier) {
+  /// then constants (current scope, then parents). Returns (value, found, scopeIndex) tuple.
+  (dynamic, bool, int?) resolveIdentifier(int identifier) {
     // Check variables first (mutable, shadows constants)
-    final variable = getVariable(identifier);
+    final (variable, scopeIndex) = getVariable(identifier);
     if (variable != null) {
-      return (variable, true);
+      return (variable, true, scopeIndex);
     }
 
     // Check constants in current scope
     var (constant, index) = _constants.getByIdentifier(identifier);
     if (constant != null || index != null) {
-      return (constant, true);
+      return (constant, true, null); // Constants don't have a scope index
     }
 
-    return (null, false);
+    return (null, false, null);
   }
 
   void print(dynamic value) {

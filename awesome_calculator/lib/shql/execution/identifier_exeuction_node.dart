@@ -29,16 +29,15 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     }
 
     // Try to resolve identifier (variables shadow constants, walks parent chain)
-    var (value, isValue) = runtime.resolveIdentifier(identifier);
+    var (value, isValue, _) = runtime.resolveIdentifier(identifier);
     var resolved = isValue;
-    var userFunction = resolved ? null : runtime.getUserFunction(identifier);
+    var (userFunction, __) = resolved ? (null, null) : runtime.getUserFunction(identifier);
     var nullaryFunction = resolved ? null : runtime.getNullaryFunction(name);
     resolved = resolved || nullaryFunction != null;
     var unaryFunction = resolved ? null : runtime.getUnaryFunction(identifier);
     resolved = resolved || unaryFunction != null;
-    var binaryFunction = resolved
-        ? null
-        : runtime.getBinaryFunction(identifier);
+    var binaryFunction =
+        resolved ? null : runtime.getBinaryFunction(identifier);
     resolved = resolved || binaryFunction != null;
 
     // The child must be tuple or list if present

@@ -62,7 +62,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     if (_indexerNode != null) {
       // Assignment to indexer
       var identifier = node.children[0].qualifier!;
-      var (target, isValue) = runtime.resolveIdentifier(identifier);
+      var (target, isValue, _) = runtime.resolveIdentifier(identifier);
       if (!isValue) {
         error = "Cannot assign to non-variable identifier.";
         return true;
