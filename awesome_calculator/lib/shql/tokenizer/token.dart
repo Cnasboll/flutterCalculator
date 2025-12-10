@@ -6,6 +6,7 @@ enum Symbols {
   colon,
   semiColon,
   assignment,
+  lambdaExpression,
   inOp,
   not,
   pow,
@@ -96,6 +97,7 @@ enum TokenTypes {
   colon,
   semiColon,
   assignment,
+  lambda,
 }
 
 enum Keywords {
@@ -350,6 +352,9 @@ class Token {
       Symbols.or: precedence,
       Symbols.xor: precedence++,
 
+      // Lambda
+      Symbols.lambdaExpression: precedence++,
+
       // Assignment
       Symbols.assignment: precedence++,
 
@@ -363,6 +368,7 @@ class Token {
       TokenTypes.colon: Symbols.colon,
       TokenTypes.semiColon: Symbols.semiColon,
       TokenTypes.assignment: Symbols.assignment,
+      TokenTypes.lambda: Symbols.lambdaExpression,
       TokenTypes.pow: Symbols.pow,
       TokenTypes.mul: Symbols.mul,
       TokenTypes.div: Symbols.div,

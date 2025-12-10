@@ -525,10 +525,8 @@ class _AncientComputerState extends State<AncientComputer>
   }
 
   void _handleKeyPress(String key) async {
-    // Play typewriter sound for key press
-    SoundManager().playSound('sounds/typewriter_key.wav');
-
     if (key == 'ENTER' && !_shiftPressed) {
+      SoundManager().playSound('sounds/typewriter-line-break-1.wav');
       final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
       final inputStart = _currentPromptPosition + promptLength;
       if (_waitingForInput && _readlineCallback != null) {
@@ -574,6 +572,7 @@ class _AncientComputerState extends State<AncientComputer>
     }
 
     setState(() {
+      var sound = "sounds/typewriter_key.wav";
       _pressedKey = key;
 
       // Handle arrow keys for cursor movement
@@ -623,6 +622,7 @@ class _AncientComputerState extends State<AncientComputer>
             _terminalText.substring(_cursorPosition);
         _cursorPosition += _tabSpaces;
       } else if (key == 'ENTER') {
+        sound = 'sounds/typewriter-line-break-1.wav';
         if (_shiftPressed) {
           // SHIFT-ENTER: Soft return (line break without prompt)
           _terminalText =
@@ -630,6 +630,8 @@ class _AncientComputerState extends State<AncientComputer>
           _cursorPosition += 1;
         }
       } else if (key == 'BACK') {
+        // Play typewriter sound for key press
+        sound = 'typewriter-backspace-1.wav';
         final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
         final promptEnd = _currentPromptPosition + promptLength;
         if (_cursorPosition > promptEnd) {
@@ -639,6 +641,7 @@ class _AncientComputerState extends State<AncientComputer>
           _cursorPosition--;
         }
       } else if (key == 'DEL') {
+        sound = 'typewriter-backspace-1.wav';
         final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
         final promptEnd = _currentPromptPosition + promptLength;
         if (_cursorPosition >= promptEnd &&
@@ -676,6 +679,8 @@ class _AncientComputerState extends State<AncientComputer>
           _cursorPosition += char.length;
         }
       }
+      // Play typewriter sound for key press
+      SoundManager().playSound(sound);
 
       // After any text modification, evaluate the current input for the cash register display
       _evaluateCurrentInput();
@@ -700,7 +705,14 @@ class _AncientComputerState extends State<AncientComputer>
   void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
       // Play typewriter sound for physical keyboard
-      SoundManager().playSound('sounds/typewriter_key.wav');
+      var sound = "sounds/typewriter_key.wav";
+      if (event.logicalKey == LogicalKeyboardKey.backspace ||
+          event.logicalKey == LogicalKeyboardKey.delete) {
+        sound = "sounds/typewriter-backspace-1.wav";
+      } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+        sound = "sounds/typewriter-line-break-1.wav";
+      }
+      SoundManager().playSound(sound);
 
       String? key;
 

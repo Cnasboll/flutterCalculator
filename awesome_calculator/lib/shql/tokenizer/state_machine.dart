@@ -47,6 +47,7 @@ enum TokenizerState {
   singleQuotedRawString,
   colon,
   exclamation,
+  eq,
   lt,
   gt,
   minus,
@@ -86,6 +87,7 @@ enum TokenizerState {
   acceptNeq,
   acceptGtEq,
   r,
+  acceptLambda,
 }
 
 // Apparently there is no built in Char type:
@@ -277,9 +279,9 @@ class StateMachine {
           TokenizerState.acceptSemiColon,
       (TokenizerState.start, ECharCodeClasses.exclamation):
           TokenizerState.exclamation,
+      (TokenizerState.start, ECharCodeClasses.eq): TokenizerState.eq,
       (TokenizerState.start, ECharCodeClasses.gt): TokenizerState.gt,
       (TokenizerState.start, ECharCodeClasses.lt): TokenizerState.lt,
-      (TokenizerState.start, ECharCodeClasses.eq): TokenizerState.acceptEq,
       (TokenizerState.start, ECharCodeClasses.tilde):
           TokenizerState.acceptMatch,
       (TokenizerState.start, ECharCodeClasses.lPar): TokenizerState.acceptLPar,
@@ -342,6 +344,7 @@ class StateMachine {
           TokenizerState.acceptNeq,
       (TokenizerState.exclamation, ECharCodeClasses.tilde):
           TokenizerState.acceptNotMatch,
+      (TokenizerState.eq, ECharCodeClasses.gt): TokenizerState.acceptLambda,
       (TokenizerState.lt, ECharCodeClasses.eq): TokenizerState.acceptLtEq,
       (TokenizerState.lt, ECharCodeClasses.gt): TokenizerState.acceptNeq,
       (TokenizerState.gt, ECharCodeClasses.eq): TokenizerState.acceptGtEq,
@@ -358,6 +361,7 @@ class StateMachine {
       TokenizerState.float: TokenizerState.acceptFloat,
       TokenizerState.colon: TokenizerState.acceptColon,
       TokenizerState.exclamation: TokenizerState.acceptNot,
+      TokenizerState.eq: TokenizerState.acceptEq,
       TokenizerState.gt: TokenizerState.acceptGt,
       TokenizerState.lt: TokenizerState.acceptLt,
       TokenizerState.minus: TokenizerState.acceptMinusOp,
@@ -382,6 +386,7 @@ class StateMachine {
       TokenizerState.acceptColon: TokenTypes.colon,
       TokenizerState.acceptSemiColon: TokenTypes.semiColon,
       TokenizerState.acceptAssignment: TokenTypes.assignment,
+      TokenizerState.acceptLambda: TokenTypes.lambda,
       TokenizerState.acceptDivOp: TokenTypes.div,
       TokenizerState.acceptModOp: TokenTypes.mod,
       TokenizerState.acceptPowOp: TokenTypes.pow,

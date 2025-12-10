@@ -1,12 +1,12 @@
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 
-/// Manages sound effects for the application
+/// Manages sound effects for the application, optimized for low-latency and concurrent playback.
 class SoundManager {
   static final SoundManager _instance = SoundManager._internal();
   factory SoundManager() => _instance;
   SoundManager._internal();
 
-  final AudioPlayer _player = AudioPlayer();
   bool _enabled = true;
 
   /// Enable or disable sound effects
@@ -17,13 +17,18 @@ class SoundManager {
   /// Check if sound is enabled
   bool get isEnabled => _enabled;
 
-  /// Play a sound effect from assets
-  /// Example: await SoundManager().playSound('sounds/click.wav');
+  /// Play a sound effect from assets by creating a new player instance for each call.
+  /// This is a robust way to handle overlapping "fire and forget" sounds like key clicks.
+  /// The player will dispose of itself automatically after playback is complete.
   Future<void> playSound(String assetPath) async {
     if (!_enabled) return;
 
     try {
-      await _player.play(AssetSource(assetPath));
+      final player = AudioPlayer();
+      // Set the release mode to release the player resources after playing.
+      // This is crucial for "fire and forget" sounds to avoid memory leaks.
+      player.setReleaseMode(ReleaseMode.release);
+      await player.play(AssetSource(assetPath), mode: PlayerMode.lowLatency);
     } catch (e) {
       // print('Error playing sound $assetPath: $e');
     }
@@ -34,20 +39,23 @@ class SoundManager {
     if (!_enabled) return;
 
     try {
-      await _player.setVolume(volume.clamp(0.0, 1.0));
-      await _player.play(AssetSource(assetPath));
+      final player = AudioPlayer();
+      player.setReleaseMode(ReleaseMode.release);
+      await player.setVolume(volume.clamp(0.0, 1.0));
+      await player.play(AssetSource(assetPath), mode: PlayerMode.lowLatency);
     } catch (e) {
       // print('Error playing sound $assetPath: $e');
     }
   }
 
-  /// Stop currently playing sound
+  /// Stop is no longer necessary for individual sounds in this model,
+  /// but we can keep it as a no-op or for future global control.
   Future<void> stop() async {
-    await _player.stop();
+    // This method is less relevant now as players are short-lived.
   }
 
-  /// Dispose the audio player
+  /// Dispose is no longer necessary as players are self-releasing.
   void dispose() {
-    _player.dispose();
+    // No-op: Players are managed automatically with ReleaseMode.release.
   }
 }

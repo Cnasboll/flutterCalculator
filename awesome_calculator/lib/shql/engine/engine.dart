@@ -22,6 +22,7 @@ import 'package:awesome_calculator/shql/execution/artithmetic/exponentiation_exe
 import 'package:awesome_calculator/shql/execution/for_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/if_statement_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/lambda_expression_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/map_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
@@ -206,6 +207,11 @@ class Engine {
 
     if (parseTree.symbol == Symbols.memberAccess) {
       return MemberAccessExecutionNode(parseTree);
+    }
+
+    executionNode = tryCreateLambdaExpressionExecutionNode(parseTree);
+    if (executionNode != null) {
+      return executionNode;
     }
 
     executionNode = tryCreateAssignmentExecutionNode(parseTree);
@@ -393,6 +399,15 @@ class Engine {
       return null;
     }
     return CompoundStatementExecutionNode(parseTree);
+  }
+
+  static LambdaExpressionExecutionNode? tryCreateLambdaExpressionExecutionNode(
+    ParseTree parseTree,
+  ) {
+    if (parseTree.symbol != Symbols.lambdaExpression) {
+      return null;
+    }
+    return LambdaExpressionExecutionNode("anonymous", parseTree);
   }
 
   static AssignmentExecutionNode? tryCreateAssignmentExecutionNode(

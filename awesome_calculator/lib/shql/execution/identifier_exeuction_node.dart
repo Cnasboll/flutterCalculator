@@ -100,7 +100,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     }
 
     if (userFunction != null) {
-      return LambdaExpressionExecutionNode(name, userFunction);
+      return LambdaExpressionExecutionNode.alias(name, node, userFunction);
     }
 
     error = '''Unidentified identifier "$name" used as a constant.
