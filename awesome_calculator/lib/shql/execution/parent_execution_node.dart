@@ -3,7 +3,7 @@ import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class ParentExecutionNode extends ExecutionNode {
-  ParentExecutionNode(this.children);
+  ParentExecutionNode(this.children, {required super.scope});
 
   @override
   Future<bool> doTick(

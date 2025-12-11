@@ -7,7 +7,7 @@ import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class ForLoopExecutionNode extends LazyExecutionNode {
-  ForLoopExecutionNode(super.node);
+  ForLoopExecutionNode(super.node, {required super.scope});
 
   AssignmentExecutionNode? _initializationNode;
   int _variableIdentifier = -1;
@@ -23,7 +23,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    if (_breakTarget == null) {
+    /*if (_breakTarget == null) {
       if (node.children.length != 4) {
         error = 'For loop must have initialization, target, step, and body.';
         return true;
@@ -46,13 +46,14 @@ class ForLoopExecutionNode extends LazyExecutionNode {
       _variableIdentifier = identifierNode.qualifier!;
       _initializationNode = Engine.tryCreateAssignmentExecutionNode(
         intializationNode,
+        scope,
       );
       if (_initializationNode == null) {
         error = 'Could not create assignment execution node.';
         return true;
       }
-      _targetNode = Engine.createExecutionNode(node.children[1]);
-      _stepNode = Engine.createExecutionNode(node.children[2]);
+      _targetNode = Engine.createExecutionNode(node.children[1], scope);
+      _stepNode = Engine.createExecutionNode(node.children[2], scope);
       _breakTarget = runtime.pushBreakTarget();
     }
     if (!_initializationDone) {
@@ -78,7 +79,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
 
     if (_bodyNode == null) {
       if (_stepNode == null) {
-        _targetNode ??= Engine.createExecutionNode(node.children[1]);
+        _targetNode ??= Engine.createExecutionNode(node.children[1], scope);
         var targetEvaluated = await tickChild(
           _targetNode!,
           runtime,
@@ -107,7 +108,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
           _targetNode = null;
         }
       }
-      _stepNode ??= Engine.createExecutionNode(node.children[2]);
+      _stepNode ??= Engine.createExecutionNode(node.children[2], scope);
       var stepEvaluated = await tickChild(
         _stepNode!,
         runtime,
@@ -132,7 +133,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
         _stepNode = null;
       }
     }
-    _bodyNode ??= Engine.createExecutionNode(node.children[3]);
+    _bodyNode ??= Engine.createExecutionNode(node.children[3], scope);
     var bodyEvaluated = await tickChild(_bodyNode!, runtime, cancellationToken);
     var continued = _breakTarget?.clearContinued() ?? false;
     if (await runtime.check(cancellationToken)) {
@@ -142,7 +143,8 @@ class ForLoopExecutionNode extends LazyExecutionNode {
     if (!bodyEvaluated && !continued) {
       return false;
     }
-    _bodyNode = null;
+    _bodyNode = null;*/
+    error = "Not implemented: For loops.";
     return true;
   }
 }

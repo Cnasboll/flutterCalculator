@@ -93,13 +93,15 @@ class Engine {
     CancellationToken? cancellationToken,
   ) async {
     try {
-      var executionNode = createExecutionNode(parseTree);
+      var executionNode = createExecutionNode(parseTree, runtime.globalScope);
       if (executionNode == null) {
         throw RuntimeException('Failed to create execution node.');
       }
 
       while ((cancellationToken == null || !await cancellationToken.check()) &&
-          !await executionNode.tick(runtime, cancellationToken)) {}
+          !await executionNode.tick(runtime, cancellationToken)) {
+        await Future.delayed(const Duration(milliseconds: 1));
+      }
 
       if (executionNode.error != null) {
         throw RuntimeException(executionNode.error!);
@@ -108,7 +110,6 @@ class Engine {
       return executionNode.result;
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.popChildScopes();
       runtime.clearBreakTargets();
       runtime.clearReturnTargets();
     }
@@ -119,7 +120,7 @@ class Engine {
     Runtime runtime,
   ) async {
     try {
-      var executionNode = createExecutionNode(parseTree);
+      var executionNode = createExecutionNode(parseTree, runtime.globalScope);
       if (executionNode == null) {
         throw RuntimeException('Failed to create execution node.');
       }
@@ -135,133 +136,138 @@ class Engine {
       return (executionNode.result, true);
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.popChildScopes();
       runtime.clearBreakTargets();
       runtime.clearReturnTargets();
     }
   }
 
-  static ExecutionNode? createExecutionNode(ParseTree parseTree) {
+  static ExecutionNode? createExecutionNode(ParseTree parseTree, Scope scope) {
     if (parseTree.symbol == Symbols.nullLiteral) {
-      return AprioriExecutionNode(null);
+      return AprioriExecutionNode(null, scope: scope);
     }
 
-    ExecutionNode? executionNode = tryCreateProgramExecutionNode(parseTree);
+    ExecutionNode? executionNode = tryCreateProgramExecutionNode(
+      parseTree,
+      scope,
+    );
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateTerminalExecutionNode(parseTree);
+    executionNode = tryCreateTerminalExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateUnaryExecutionNode(parseTree);
+    executionNode = tryCreateUnaryExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateIfStatementExecutionNode(parseTree);
+    executionNode = tryCreateIfStatementExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateWhileLoopExecutionNode(parseTree);
+    executionNode = tryCreateWhileLoopExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateRepeatUntilLoopExecutionNode(parseTree);
+    executionNode = tryCreateRepeatUntilLoopExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateForLoopExecutionNode(parseTree);
+    executionNode = tryCreateForLoopExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateBreakStatementExecutionNode(parseTree);
+    executionNode = tryCreateBreakStatementExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateContinueStatementExecutionNode(parseTree);
+    executionNode = tryCreateContinueStatementExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateReturnStatementExecutionNode(parseTree);
+    executionNode = tryCreateReturnStatementExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateCompoundStatementExecutionNode(parseTree);
+    executionNode = tryCreateCompoundStatementExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
     if (parseTree.children.length < 2) {
-      return AprioriExecutionNode(double.nan);
+      return AprioriExecutionNode(double.nan, scope: scope);
     }
 
     if (parseTree.symbol == Symbols.memberAccess) {
-      return MemberAccessExecutionNode(parseTree);
+      return MemberAccessExecutionNode(parseTree, scope: scope);
     }
 
-    executionNode = tryCreateLambdaExpressionExecutionNode(parseTree);
+    executionNode = tryCreateLambdaExpressionExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    executionNode = tryCreateAssignmentExecutionNode(parseTree);
+    executionNode = tryCreateAssignmentExecutionNode(parseTree, scope);
     if (executionNode != null) {
       return executionNode;
     }
 
-    return createBinaryOperatorExecutionNode(parseTree);
+    return createBinaryOperatorExecutionNode(parseTree, scope);
   }
 
-  static ExecutionNode? createBinaryOperatorExecutionNode(ParseTree parseTree) {
-    var lhs = createExecutionNode(parseTree.children[0]);
-    var rhs = createExecutionNode(parseTree.children[1]);
+  static ExecutionNode? createBinaryOperatorExecutionNode(
+    ParseTree parseTree,
+    Scope scope,
+  ) {
+    var lhs = createExecutionNode(parseTree.children[0], scope);
+    var rhs = createExecutionNode(parseTree.children[1], scope);
     switch (parseTree.symbol) {
       case Symbols.inOp:
-        return InExecutionNode(lhs!, rhs!);
+        return InExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.pow:
-        return ExponentiationExecutionNode(lhs!, rhs!);
+        return ExponentiationExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.mul:
-        return MultiplicationExecutionNode(lhs!, rhs!);
+        return MultiplicationExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.div:
-        return DivisionExecutionNode(lhs!, rhs!);
+        return DivisionExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.mod:
-        return ModulusExecutionNode(lhs!, rhs!);
+        return ModulusExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.add:
-        return AdditionExecutionNode(lhs!, rhs!);
+        return AdditionExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.sub:
-        return SubtractionExecutionNode(lhs!, rhs!);
+        return SubtractionExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.lt:
-        return LessThanExecutionNode(lhs!, rhs!);
+        return LessThanExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.ltEq:
-        return LessThanOrEqualExecutionNode(lhs!, rhs!);
+        return LessThanOrEqualExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.gt:
-        return GreaterThanExecutionNode(lhs!, rhs!);
+        return GreaterThanExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.gtEq:
-        return GreaterThanOrEqualExecutionNode(lhs!, rhs!);
+        return GreaterThanOrEqualExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.eq:
-        return EqualityExecutionNode(lhs!, rhs!);
+        return EqualityExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.neq:
-        return NotEqualityExecutionNode(lhs!, rhs!);
+        return NotEqualityExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.match:
-        return MatchExecutionNode(lhs!, rhs!);
+        return MatchExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.notMatch:
-        return NotMatchExecutionNode(lhs!, rhs!);
+        return NotMatchExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.and:
-        return AndExecutionNode(lhs!, rhs!);
+        return AndExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.or:
-        return OrExecutionNode(lhs!, rhs!);
+        return OrExecutionNode(lhs!, rhs!, scope: scope);
       case Symbols.xor:
-        return XorExecutionNode(lhs!, rhs!);
+        return XorExecutionNode(lhs!, rhs!, scope: scope);
       default:
         return null;
     }
@@ -269,29 +275,33 @@ class Engine {
 
   static ProgramExecutionNode? tryCreateProgramExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.program) {
       return null;
     }
-    return ProgramExecutionNode(parseTree);
+    return ProgramExecutionNode(parseTree, scope: scope);
   }
 
-  static ExecutionNode? tryCreateTerminalExecutionNode(ParseTree parseTree) {
+  static ExecutionNode? tryCreateTerminalExecutionNode(
+    ParseTree parseTree,
+    Scope scope,
+  ) {
     switch (parseTree.symbol) {
       case Symbols.list:
-        return ListLiteralNode(parseTree);
+        return ListLiteralNode(parseTree, scope: scope);
       case Symbols.tuple:
-        return TupleLiteralNode(parseTree);
+        return TupleLiteralNode(parseTree, scope: scope);
       case Symbols.map:
-        return MapLiteralNode(parseTree);
+        return MapLiteralNode(parseTree, scope: scope);
       case Symbols.floatLiteral:
-        return ConstantNode<double>(parseTree);
+        return ConstantNode<double>(parseTree, scope: scope);
       case Symbols.integerLiteral:
-        return ConstantNode<int>(parseTree);
+        return ConstantNode<int>(parseTree, scope: scope);
       case Symbols.stringLiteral:
-        return ConstantNode<String>(parseTree);
+        return ConstantNode<String>(parseTree, scope: scope);
       case Symbols.identifier:
-        return IdentifierExecutionNode(parseTree);
+        return IdentifierExecutionNode(parseTree, scope: scope);
       default:
         return null;
     }
@@ -305,27 +315,30 @@ class Engine {
     ].contains(symbol);
   }
 
-  static ExecutionNode? tryCreateUnaryExecutionNode(ParseTree parseTree) {
+  static ExecutionNode? tryCreateUnaryExecutionNode(
+    ParseTree parseTree,
+    Scope scope,
+  ) {
     if (!isUnary(parseTree.symbol)) {
       return null;
     }
     if (parseTree.children.isEmpty) {
-      return AprioriExecutionNode(double.nan);
+      return AprioriExecutionNode(double.nan, scope: scope);
     }
 
-    var operand = createExecutionNode(parseTree.children.first);
+    var operand = createExecutionNode(parseTree.children.first, scope);
     if (operand == null) {
-      return AprioriExecutionNode(double.nan);
+      return AprioriExecutionNode(double.nan, scope: scope);
     }
     switch (parseTree.symbol) {
       case Symbols.unaryMinus:
         // Unary minus
-        return UnaryMinusExecutionNode(operand);
+        return UnaryMinusExecutionNode(operand, scope: scope);
       case Symbols.unaryPlus:
         // Unary plus
         return operand;
       case Symbols.not:
-        return NotExecutionNode(operand);
+        return NotExecutionNode(operand, scope: scope);
       default:
         return null;
     }
@@ -333,89 +346,97 @@ class Engine {
 
   static IfStatementExecutionNode? tryCreateIfStatementExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.ifStatement) {
       return null;
     }
-    return IfStatementExecutionNode(parseTree);
+    return IfStatementExecutionNode(parseTree, scope: scope);
   }
 
   static WhileLoopExecutionNode? tryCreateWhileLoopExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.whileLoop) {
       return null;
     }
-    return WhileLoopExecutionNode(parseTree);
+    return WhileLoopExecutionNode(parseTree, scope: scope);
   }
 
   static RepeatUntilLoopExecutionNode? tryCreateRepeatUntilLoopExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.repeatUntilLoop) {
       return null;
     }
-    return RepeatUntilLoopExecutionNode(parseTree);
+    return RepeatUntilLoopExecutionNode(parseTree, scope: scope);
   }
 
   static ForLoopExecutionNode? tryCreateForLoopExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.forLoop) {
       return null;
     }
-    return ForLoopExecutionNode(parseTree);
+    return ForLoopExecutionNode(parseTree, scope: scope);
   }
 
   static BreakStatementExecutionNode? tryCreateBreakStatementExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.breakStatement) {
       return null;
     }
-    return BreakStatementExecutionNode();
+    return BreakStatementExecutionNode(scope: scope);
   }
 
   static ContinueStatementExecutionNode?
-  tryCreateContinueStatementExecutionNode(ParseTree parseTree) {
+  tryCreateContinueStatementExecutionNode(ParseTree parseTree, Scope scope) {
     if (parseTree.symbol != Symbols.continueStatement) {
       return null;
     }
-    return ContinueStatementExecutionNode();
+    return ContinueStatementExecutionNode(scope: scope);
   }
 
   static ReturnStatementExecutionNode? tryCreateReturnStatementExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.returnStatement) {
       return null;
     }
-    return ReturnStatementExecutionNode(parseTree);
+    return ReturnStatementExecutionNode(parseTree, scope: scope);
   }
 
   static CompoundStatementExecutionNode?
-  tryCreateCompoundStatementExecutionNode(ParseTree parseTree) {
+  tryCreateCompoundStatementExecutionNode(ParseTree parseTree, Scope scope) {
     if (parseTree.symbol != Symbols.compoundStatement) {
       return null;
     }
-    return CompoundStatementExecutionNode(parseTree);
+    return CompoundStatementExecutionNode(parseTree, scope: scope);
   }
 
   static LambdaExpressionExecutionNode? tryCreateLambdaExpressionExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.lambdaExpression) {
       return null;
     }
-    return LambdaExpressionExecutionNode("anonymous", parseTree);
+    return LambdaExpressionExecutionNode("anonymous", parseTree, scope: scope);
   }
 
   static AssignmentExecutionNode? tryCreateAssignmentExecutionNode(
     ParseTree parseTree,
+    Scope scope,
   ) {
     if (parseTree.symbol != Symbols.assignment) {
       return null;
     }
-    return AssignmentExecutionNode(parseTree);
+    return AssignmentExecutionNode(parseTree, scope: scope);
   }
 }

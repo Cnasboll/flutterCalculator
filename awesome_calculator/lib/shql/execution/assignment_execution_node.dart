@@ -7,7 +7,7 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class AssignmentExecutionNode extends LazyExecutionNode {
-  AssignmentExecutionNode(super.node);
+  AssignmentExecutionNode(super.node, {required super.scope});
 
   @override
   Future<bool> doTick(
@@ -62,8 +62,17 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     if (_indexerNode != null) {
       // Assignment to indexer
       var identifier = node.children[0].qualifier!;
-      var (target, isValue, _) = runtime.resolveIdentifier(identifier);
-      if (!isValue) {
+      var (target, containingScope, isConstant) = scope.resolveIdentifier(
+        identifier,
+      );
+      var resolved = containingScope != null;
+      var isUserFunction = resolved && target is UserFunction;
+      var isVariable = resolved && !isUserFunction && !isConstant;
+      if (isConstant) {
+        error = "Cannot assign to constant.";
+        return true;
+      }
+      if (!isVariable) {
         error = "Cannot assign to non-variable identifier.";
         return true;
       }
@@ -79,10 +88,17 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     var identifier = node.children[0].qualifier!;
 
     if (_rhs!.result is UserFunction) {
-      runtime.setUserFunction(identifier, _rhs!.result);
+      scope.defineUserFunction(identifier, _rhs!.result);
       return true;
     } else {
-      runtime.setVariable(identifier, _rhs!.result);
+      var (containingScope, error) = scope.setVariable(
+        identifier,
+        _rhs!.result,
+      );
+      if (error != null) {
+        this.error = error;
+        return true;
+      }
     }
 
     if (await runtime.check(cancellationToken)) {
@@ -114,7 +130,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     if (childrenCount == 1) {
       var child = identifierChild.children[0];
       if (child.symbol == Symbols.list && child.children.length == 1) {
-        return (Engine.createExecutionNode(child.children[0]), null);
+        return (Engine.createExecutionNode(child.children[0], scope), null);
       }
     }
     return (null, null);
@@ -162,7 +178,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       }
     }
 
-    return (Engine.createExecutionNode(node.children[1])!, null);
+    return (Engine.createExecutionNode(node.children[1], scope)!, null);
   }
 
   bool defineUserFunction(
@@ -187,9 +203,10 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     var userFunction = UserFunction(
       name: name,
       argumentIdentifiers: argumentIdentifiers,
+      scope: scope,
       body: node.children[1],
     );
-    runtime.setUserFunction(identifier, userFunction);
+    scope.members.defineUserFunction(identifier, userFunction);
     result = userFunction;
     return true;
   }

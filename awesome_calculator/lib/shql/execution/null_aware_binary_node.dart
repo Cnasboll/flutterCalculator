@@ -2,7 +2,7 @@ import 'package:awesome_calculator/shql/execution/binary_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class NullAwareBinaryNode extends BinaryExecutionNode {
-  NullAwareBinaryNode(super.lhs, super.rhs);
+  NullAwareBinaryNode(super.lhs, super.rhs, {required super.scope});
 
   @override
   Future<void> onChildrenComplete(Runtime runtime) async {

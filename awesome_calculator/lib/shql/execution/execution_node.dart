@@ -2,6 +2,10 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class ExecutionNode {
+  final Scope scope;
+
+  ExecutionNode({required this.scope});
+
   // Tick a child node and update result and error accordingly.
   // The result for a parent is always the same as the last ticked child's result which propagates up the tree.
   Future<bool> tickChild(

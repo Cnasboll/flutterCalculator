@@ -3,7 +3,7 @@ import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class BooleanExecutionNode extends ExecutionNode {
-  BooleanExecutionNode(this.lhs, this.rhs);
+  BooleanExecutionNode(this.lhs, this.rhs, {required super.scope});
 
   @override
   Future<bool> doTick(

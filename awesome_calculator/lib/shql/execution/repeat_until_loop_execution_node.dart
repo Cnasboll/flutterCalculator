@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
-  RepeatUntilLoopExecutionNode(super.node);
+  RepeatUntilLoopExecutionNode(super.node, {required super.scope});
 
   ExecutionNode? _conditionNode;
   ExecutionNode? _bodyNode;
@@ -18,7 +18,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
   ) async {
     _breakTarget ??= runtime.pushBreakTarget();
     if (_conditionNode == null) {
-      _bodyNode ??= Engine.createExecutionNode(node.children[0]);
+      _bodyNode ??= Engine.createExecutionNode(node.children[0], scope);
       var bodyEvaluated = await tickChild(
         _bodyNode!,
         runtime,
@@ -33,7 +33,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
 
       _bodyNode = null;
       if (bodyEvaluated || continued) {
-        _conditionNode = Engine.createExecutionNode(node.children[1]);
+        _conditionNode = Engine.createExecutionNode(node.children[1], scope);
       } else {
         return false;
       }

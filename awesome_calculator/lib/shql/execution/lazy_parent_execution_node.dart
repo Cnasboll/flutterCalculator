@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class LazyParentExecutionNode extends LazyExecutionNode {
-  LazyParentExecutionNode(super.node);
+  LazyParentExecutionNode(super.node, {required super.scope});
 
   @override
   Future<bool> doTick(
@@ -18,7 +18,7 @@ abstract class LazyParentExecutionNode extends LazyExecutionNode {
     if (children == null) {
       List<ExecutionNode> r = [];
       for (var child in node.children) {
-        var childRuntime = Engine.createExecutionNode(child);
+        var childRuntime = Engine.createExecutionNode(child, scope);
         if (childRuntime == null) {
           error = 'Failed to create execution node for child node.';
           return true;

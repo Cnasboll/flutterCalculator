@@ -1,7 +1,7 @@
 import 'package:awesome_calculator/shql/execution/null_aware_unary_node.dart';
 
 class NotExecutionNode extends NullAwareUnaryNode {
-  NotExecutionNode(super.operand);
+  NotExecutionNode(super.operand, {required super.scope});
 
   @override
   Future<dynamic> evaluate(dynamic operandResult) async =>

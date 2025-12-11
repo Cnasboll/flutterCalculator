@@ -1,20 +1,18 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
+import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class UserFunctionExecutionNode extends ExecutionNode {
   UserFunctionExecutionNode(
-    this.scopeIndex,
-    this.argumentIdentifiers,
-    this.arguments,
-    this.body,
-  );
+    this.userFunction,
+    this.arguments, {
+    required super.scope,
+  });
 
-  List<Scope>? _stashedScope;
-  final int scopeIndex;
-  final List<int> argumentIdentifiers;
+  final UserFunction userFunction;
   final List<ExecutionNode> arguments;
-  final ExecutionNode body;
+  ExecutionNode? body;
   int _argumentIndex = 0;
   ReturnTarget? _returnTarget;
 
@@ -39,42 +37,39 @@ class UserFunctionExecutionNode extends ExecutionNode {
         ++_argumentIndex;
       }
 
-      _stashedScope = runtime.stash(scopeIndex);
-      var (success, error) = runtime.pushScope();
-      if (!success) {
-        // Handle the error, e.g., throw an exception or return false
-        this.error = error;
-        return false;
-      }
+      var childScope = Scope(Object(), parent: userFunction.scope);
       // Assign argument values to identifiers
+      var argumentIdentifiers = userFunction.argumentIdentifiers;
       for (int i = 0; i < argumentIdentifiers.length; i++) {
         var argument = arguments[i].result;
         if (argument is UserFunction) {
-          runtime.setUserFunction(argumentIdentifiers[i], argument);
+          // Define user function in child scope, in members directly so it is definetely shadowed
+          childScope.members.defineUserFunction(
+            argumentIdentifiers[i],
+            argument,
+          );
         } else {
-          runtime.assignVariable(argumentIdentifiers[i], argument, true);
+          // Define variable child scope, in members directly so it is definetely shadowed
+          childScope.members.setVariable(argumentIdentifiers[i], argument);
         }
       }
       _returnTarget = runtime.pushReturnTarget();
+      body = Engine.createExecutionNode(userFunction.body, childScope);
     }
     var returnTarget = _returnTarget!;
     // Tick the body
-    if (!await tickChild(body, runtime, cancellationToken)) {
+    if (!await tickChild(body!, runtime, cancellationToken)) {
       // Handle return value
       if (await returnTarget.check(cancellationToken)) {
         if (returnTarget.hasReturnValue) {
           result = returnTarget.returnValue;
         }
-        runtime.popScope();
-        runtime.restore(_stashedScope!);
         runtime.popReturnTarget();
         return true;
       }
       return false;
     }
 
-    runtime.popScope();
-    runtime.restore(_stashedScope!);
     runtime.popReturnTarget();
     return true;
   }

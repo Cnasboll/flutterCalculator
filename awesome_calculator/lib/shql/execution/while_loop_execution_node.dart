@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class WhileLoopExecutionNode extends LazyExecutionNode {
-  WhileLoopExecutionNode(super.node);
+  WhileLoopExecutionNode(super.node, {required super.scope});
 
   ExecutionNode? _conditionNode;
   ExecutionNode? _bodyNode;
@@ -18,7 +18,7 @@ class WhileLoopExecutionNode extends LazyExecutionNode {
     CancellationToken? cancellationToken,
   ) async {
     if (_bodyNode == null) {
-      _conditionNode ??= Engine.createExecutionNode(node.children[0]);
+      _conditionNode ??= Engine.createExecutionNode(node.children[0], scope);
 
       // If the body has been executd once, keep the result the last body and void tickChild() as that would
       // always make the while loop evaluate to false.
@@ -35,7 +35,7 @@ class WhileLoopExecutionNode extends LazyExecutionNode {
       if (await runtime.check(cancellationToken)) {
         return true;
       }
-      _bodyNode = Engine.createExecutionNode(node.children[1]);
+      _bodyNode = Engine.createExecutionNode(node.children[1], scope);
       _breakTarget = runtime.pushBreakTarget();
     }
 

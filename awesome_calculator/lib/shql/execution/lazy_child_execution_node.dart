@@ -4,7 +4,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class LazyChildExecutionNode extends LazyExecutionNode {
-  LazyChildExecutionNode(super.node);
+  LazyChildExecutionNode(super.node, {required super.scope});
 
   ExecutionNode get child => _child!;
 

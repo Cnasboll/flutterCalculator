@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/runtime.dart';
 class NullaryLambdaExecutionNode extends ExecutionNode {
   final dynamic Function() nullaryFunction;
 
-  NullaryLambdaExecutionNode(this.nullaryFunction);
+  NullaryLambdaExecutionNode(this.nullaryFunction, {required super.scope});
 
   @override
   Future<bool> doTick(

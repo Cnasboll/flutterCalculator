@@ -6,7 +6,7 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class MemberAccessExecutionNode extends LazyExecutionNode {
-  MemberAccessExecutionNode(super.node);
+  MemberAccessExecutionNode(super.node, {required super.scope});
 
   @override
   Future<bool> doTick(
@@ -43,7 +43,10 @@ class MemberAccessExecutionNode extends LazyExecutionNode {
     }
 
     // Now evaluate the right identifier in the target scope
-    var rightNode = Engine.createExecutionNode(rightChild);
+    var rightNode = Engine.createExecutionNode(
+      rightChild,
+      targetScope.globalScope,
+    );
     if (rightNode == null) {
       error = 'Failed to create execution node for right side of member access';
       return true;

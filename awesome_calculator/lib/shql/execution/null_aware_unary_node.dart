@@ -2,7 +2,7 @@ import 'package:awesome_calculator/shql/execution/unary_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class NullAwareUnaryNode extends UnaryExecutionNode {
-  NullAwareUnaryNode(super.operand);
+  NullAwareUnaryNode(super.operand, {required super.scope});
 
   @override
   Future<void> onChildrenComplete(Runtime runtime) async {

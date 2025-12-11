@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class ReturnStatementExecutionNode extends LazyExecutionNode {
-  ReturnStatementExecutionNode(super.node);
+  ReturnStatementExecutionNode(super.node, {required super.scope});
 
   @override
   Future<bool> doTick(
@@ -23,7 +23,7 @@ class ReturnStatementExecutionNode extends LazyExecutionNode {
         return true;
       }
 
-      _returnValueNode = Engine.createExecutionNode(node.children[0]);
+      _returnValueNode = Engine.createExecutionNode(node.children[0], scope);
       if (_returnValueNode == null) {
         error = 'Failed to create execution node for return value.';
         return true;

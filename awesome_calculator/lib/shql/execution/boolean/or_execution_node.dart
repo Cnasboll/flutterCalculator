@@ -1,7 +1,7 @@
 import 'package:awesome_calculator/shql/execution/boolean/boolean_exeuction_node.dart';
 
 class OrExecutionNode extends BooleanExecutionNode {
-  OrExecutionNode(super.lhs, super.rhs);
+  OrExecutionNode(super.lhs, super.rhs, {required super.scope});
 
   @override
   bool shortCircuit(bool lhsResult) {

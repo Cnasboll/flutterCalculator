@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class ProgramExecutionNode extends LazyExecutionNode {
-  ProgramExecutionNode(super.node);
+  ProgramExecutionNode(super.node, {required super.scope});
 
   @override
   Future<bool> doTick(
@@ -15,6 +15,7 @@ class ProgramExecutionNode extends LazyExecutionNode {
     while (_statementIndex < node.children.length) {
       _currentStatement ??= Engine.createExecutionNode(
         node.children[_statementIndex],
+        scope,
       );
       if (_currentStatement == null) {
         error = 'Failed to create execution node for statement.';

@@ -3,5 +3,5 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
 abstract class LazyExecutionNode extends ExecutionNode {
   final ParseTree node;
-  LazyExecutionNode(this.node);
+  LazyExecutionNode(this.node, {required super.scope});
 }

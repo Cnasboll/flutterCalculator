@@ -3,6 +3,7 @@ import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class ContinueStatementExecutionNode extends ExecutionNode {
+  ContinueStatementExecutionNode({required super.scope});
   @override
   Future<bool> doTick(
     Runtime runtime,

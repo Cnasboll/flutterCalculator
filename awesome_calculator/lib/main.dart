@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'widgets/device_panel.dart';
+import 'package:awesome_calculator/widgets/device_panel.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,13 +11,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Ancient Computer',
+      title: 'Simple Calculator with SHQL capabilities',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF2B2B2B),
       ),
-      home: const Scaffold(body: AncientComputer()),
+      home: const Scaffold(
+        body: Center(
+          child: SizedBox(width: 1000, height: 800, child: DevicePanel()),
+        ),
+      ),
     );
   }
 }

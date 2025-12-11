@@ -14,7 +14,7 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class IdentifierExecutionNode extends LazyChildExecutionNode {
-  IdentifierExecutionNode(super.node);
+  IdentifierExecutionNode(super.node, {required super.scope});
 
   @override
   ExecutionNode? createChildNode(Runtime runtime) {
@@ -29,11 +29,13 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     }
 
     // Try to resolve identifier (variables shadow constants, walks parent chain)
-    var (value, isValue, _) = runtime.resolveIdentifier(identifier);
-    var resolved = isValue;
-    var (userFunction, scopeIndex) = resolved
-        ? (null, null)
-        : runtime.getUserFunction(identifier);
+    var (value, containingScope, isConstant) = scope.resolveIdentifier(
+      identifier,
+    );
+    var resolved = containingScope != null;
+    var isUserFunction = resolved && value is UserFunction;
+    UserFunction? userFunction = isUserFunction ? value as UserFunction? : null;
+    var isVariable = resolved && !isUserFunction && !isConstant;
     var nullaryFunction = resolved ? null : runtime.getNullaryFunction(name);
     resolved = resolved || nullaryFunction != null;
     var unaryFunction = resolved ? null : runtime.getUnaryFunction(identifier);
@@ -49,17 +51,23 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       var childSymbol = child.symbol;
 
       if (childSymbol == Symbols.list) {
-        return createIndexerExecutionNode(isValue, name, value, child.children);
+        return createIndexerExecutionNode(
+          runtime,
+          isVariable,
+          name,
+          value,
+          child.children,
+        );
       }
 
       if (childSymbol == Symbols.tuple) {
         return createFunctionCallExecutionNode(
           runtime,
-          isValue,
+          isVariable,
+          isConstant,
           name,
           value,
           userFunction,
-          scopeIndex,
           nullaryFunction,
           unaryFunction,
           binaryFunction,
@@ -71,7 +79,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       return null;
     }
 
-    if (isValue) {
+    if (isVariable || isConstant) {
       result = value;
       return null;
     }
@@ -82,10 +90,10 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
         userFunction == null) {
       return createFunctionCallExecutionNode(
         runtime,
-        isValue,
+        isVariable,
+        isConstant,
         name,
         value,
-        null,
         null,
         nullaryFunction,
         null,
@@ -100,7 +108,12 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     }
 
     if (userFunction != null) {
-      return LambdaExpressionExecutionNode.alias(name, node, userFunction);
+      return LambdaExpressionExecutionNode.alias(
+        name,
+        node,
+        userFunction,
+        scope: scope,
+      );
     }
 
     error = '''Unidentified identifier "$name" used as a constant.
@@ -113,27 +126,31 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
 
   ExecutionNode? createFunctionCallExecutionNode(
     Runtime runtime,
-    bool isValue,
+    bool isVariable,
+    bool isConstant,
     String name,
     value,
     UserFunction? userFunction,
-    int? scopeIndex,
     Function()? nullaryFunction,
     Function(dynamic p1)? unaryFunction,
     Function(dynamic p1, dynamic p2)? binaryFunction,
     List<ParseTree> arguments,
   ) {
     var argumentCount = arguments.length;
-    if (isValue) {
+    if (isVariable || isConstant) {
       if (argumentCount != 1) {
         error =
-            "Attempt to use value $name as a function: ($argumentCount) argument(s) given.";
+            "Attempt to use ${isConstant ? "constant" : "variable"} $name as a function: ($argumentCount) argument(s) given.";
         return null;
       }
 
       // Special case: treat identifier followed by single-element tuple as multiplication
-      var lhs = Engine.createExecutionNode(arguments[0]);
-      return MultiplicationExecutionNode(AprioriExecutionNode(value), lhs!);
+      var lhs = Engine.createExecutionNode(arguments[0], scope);
+      return MultiplicationExecutionNode(
+        AprioriExecutionNode(value, scope: scope),
+        lhs!,
+        scope: scope,
+      );
     }
 
     if (userFunction != null) {
@@ -145,14 +162,13 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
 
       var argumentNodes = <ExecutionNode>[];
       for (var argument in arguments) {
-        argumentNodes.add(Engine.createExecutionNode(argument)!);
+        argumentNodes.add(Engine.createExecutionNode(argument, scope)!);
       }
 
       return UserFunctionExecutionNode(
-        scopeIndex!,
-        userFunction.argumentIdentifiers,
+        userFunction,
         argumentNodes,
-        Engine.createExecutionNode(userFunction.body)!,
+        scope: scope,
       );
     }
 
@@ -161,7 +177,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
         error = "Function $name() takes 0 arguments, $argumentCount given.";
         return null;
       }
-      return NullaryLambdaExecutionNode(nullaryFunction);
+      return NullaryLambdaExecutionNode(nullaryFunction, scope: scope);
     }
 
     if (unaryFunction != null) {
@@ -172,7 +188,8 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
       }
       return UnaryLambdaExecutionNode(
         unaryFunction,
-        Engine.createExecutionNode(arguments[0])!,
+        Engine.createExecutionNode(arguments[0], scope)!,
+        scope: scope,
       );
     }
 
@@ -184,8 +201,9 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
 
       return BinaryLambdaExecutionNode(
         binaryFunction,
-        Engine.createExecutionNode(arguments[0])!,
-        Engine.createExecutionNode(arguments[1])!,
+        Engine.createExecutionNode(arguments[0], scope)!,
+        Engine.createExecutionNode(arguments[1], scope)!,
+        scope: scope,
       );
     }
     error = 'Unidentified identifier "$name" used as a function.';
@@ -193,6 +211,7 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
   }
 
   IndexerExecutionNode? createIndexerExecutionNode(
+    Runtime runtime,
     bool isValue,
     String identifier,
     value,
@@ -207,8 +226,12 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
       }
 
       // Special case: treat identifier followed by single-element list as indexing
-      var lhs = Engine.createExecutionNode(indexes[0]);
-      return IndexerExecutionNode(AprioriExecutionNode(value), lhs!);
+      var lhs = Engine.createExecutionNode(indexes[0], scope);
+      return IndexerExecutionNode(
+        AprioriExecutionNode(value, scope: scope),
+        lhs!,
+        scope: scope,
+      );
     }
 
     error = 'Identifier "$identifier" used with indexer.';

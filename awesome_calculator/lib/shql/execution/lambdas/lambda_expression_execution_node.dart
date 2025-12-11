@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class LambdaExpressionExecutionNode extends LazyExecutionNode {
-  LambdaExpressionExecutionNode(this.name, super.node) {
+  LambdaExpressionExecutionNode(this.name, super.node, {required super.scope}) {
     var (userFunction, e) = createUserFunction();
     if (e != null) {
       error = e;
@@ -18,8 +18,9 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
   LambdaExpressionExecutionNode.alias(
     this.name,
     super.node,
-    UserFunction result,
-  ) {
+    UserFunction result, {
+    required super.scope,
+  }) {
     this.result = result;
     completed = true;
   }
@@ -55,6 +56,7 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
     var userFunction = UserFunction(
       name: name,
       argumentIdentifiers: argumentIdentifiers,
+      scope: scope,
       body: node.children[1],
     );
 

@@ -65,5 +65,11 @@ while true do begin
     if uppercase(input) = "Q" then break;
     b := if index >= 4 then int(input) else double(input);
 
-    print("The result is " + string(func(a, b)));
+    result := func(a,b);
+    formatted_result :=
+        if index >= 4 then
+            string(int(result))
+        else string(result);
+
+    print("The result is " + formatted_result);
 end

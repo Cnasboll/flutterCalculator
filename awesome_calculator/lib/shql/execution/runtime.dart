@@ -8,18 +8,155 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 class UserFunction {
   final String? name;
   final List<int> argumentIdentifiers;
+  final Scope scope;
   final ParseTree body;
 
   UserFunction({
     this.name,
     required this.argumentIdentifiers,
+    required this.scope,
     required this.body,
   });
 }
 
-class Scope {
+class Constant {
+  final dynamic value;
+  final int identifier;
+
+  Constant(this.value, this.identifier);
+}
+
+class Object {
+  final Map<int, dynamic> members = {};
   final Map<int, dynamic> variables = {};
-  final Map<int, UserFunction> userFunctions = {};
+  final Map<int, UserFunction> userFunctons = {};
+
+  dynamic resolveIdentifier(int identifier) {
+    return members[identifier];
+  }
+
+  bool hasMember(int identifier) {
+    return members.containsKey(identifier);
+  }
+
+  void setVariable(int identifier, dynamic value) {
+    members[identifier] = variables[identifier] = value;
+    userFunctons.remove(identifier);
+  }
+
+  UserFunction defineUserFunction(int identifier, UserFunction userFunction) {
+    members[identifier] = userFunctons[identifier] = userFunction;
+    variables.remove(identifier);
+    return userFunction;
+  }
+
+  Object clone() {
+    var newObject = Object();
+    newObject.members.addAll(members);
+    newObject.variables.addAll(variables);
+    newObject.userFunctons.addAll(userFunctons);
+    return newObject;
+  }
+}
+
+class Scope {
+  Object members;
+  ConstantsTable<dynamic>? constants;
+  Scope? parent;
+  Scope(this.members, {this.constants, this.parent});
+
+  (dynamic, Scope?, bool) resolveIdentifier(int identifier) {
+    Scope? current = this;
+    while (current != null) {
+      var member = current.members.resolveIdentifier(identifier);
+      if (member != null) {
+        return (member, current, false);
+      }
+      current = current.parent;
+    }
+
+    if (constants != null) {
+      var (value, index) = constants!.getByIdentifier(identifier);
+      if (index != null) {
+        return (value, this, true);
+      }
+    }
+
+    return (null, null, false);
+  }
+
+  bool hasMember(int identifier) {
+    Scope? current = this;
+    while (current != null) {
+      if (current.members.hasMember(identifier)) {
+        return true;
+      }
+      current = current.parent;
+    }
+
+    if (constants != null) {
+      var (value, index) = constants!.getByIdentifier(identifier);
+      return index != null;
+    }
+    return false;
+  }
+
+  (Scope, String?) setVariable(int identifier, dynamic value) {
+    var (existingValue, containingScope, isConstant) = resolveIdentifier(
+      identifier,
+    );
+    if (existingValue != null && isConstant) {
+      // Cannot modify constant
+      return (containingScope!, "Cannot modify constant");
+    }
+    containingScope ??= this;
+    containingScope.members.setVariable(identifier, value);
+    return (containingScope, null);
+  }
+
+  (Scope, UserFunction, String?) defineUserFunction(
+    int identifier,
+    UserFunction userFunction,
+  ) {
+    var (existingValue, containingScope, isConstant) = resolveIdentifier(
+      identifier,
+    );
+    if (isConstant) {
+      // Cannot modify constant
+      return (
+        containingScope!,
+        userFunction,
+        "Cannot shadow constant with function",
+      );
+    }
+
+    containingScope ??= this;
+    return (
+      containingScope,
+      containingScope.members.defineUserFunction(identifier, userFunction),
+      null,
+    );
+  }
+
+  Scope clone() {
+    Scope? current = this;
+    Scope? tail;
+    Scope? head;
+    while (current != null) {
+      var newNode = Scope(
+        current.members.clone(),
+        constants: current.constants,
+      );
+      if (head == null) {
+        head = tail = newNode;
+      } else {
+        tail!.parent = newNode;
+        tail = newNode;
+      }
+      current = current.parent;
+    }
+    return head!;
+  }
 }
 
 enum BreakState { none, breaked, continued }
@@ -80,16 +217,15 @@ class ReturnTarget {
 }
 
 class Runtime {
-  late final ConstantsTable<dynamic> _constants;
   late final ConstantsTable<String> _identifiers;
   final Map<String, Function()> _nullaryFunctions = {};
   late final Map<int, Function(dynamic p1)> _unaryFunctions;
   late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
-  final List<Scope> _scopeStack = [];
+  late final Scope globalScope;
   final List<BreakTarget> _breakTargets = [];
   final List<ReturnTarget> _returnTargets = [];
   final Map<int, Runtime> _subModelScopes = {};
-  bool _readonly = false;
+  bool _sandboxed = false;
 
   Function(dynamic value)? printFunction;
   Future<String> Function()? readlineFunction;
@@ -97,28 +233,27 @@ class Runtime {
   Future<void> Function()? clsFunction;
   Future<void> Function(dynamic, dynamic)? plotFunction;
 
-  int get depth => _scopeStack.length;
-
   Runtime({
     ConstantsSet? constantsSet,
     required Map<int, Function(dynamic p1)> unaryFunctions,
     required Map<int, Function(dynamic p1, dynamic p2)> binaryFunctions,
   }) {
-    _constants = constantsSet?.constants ?? ConstantsTable();
     _identifiers = constantsSet?.identifiers ?? ConstantsTable();
     _unaryFunctions = Map.from(unaryFunctions);
     _binaryFunctions = Map.from(binaryFunctions);
-    _scopeStack.add(Scope()); // Add the global scope
+    globalScope = Scope(
+      Object(),
+      constants: constantsSet?.constants ?? ConstantsTable(),
+    );
     hookUpConsole();
   }
 
-  Runtime._readOnlyCopy(Runtime other) {
-    _constants = other._constants;
+  Runtime._sandbox(Runtime other) {
     _identifiers = other._identifiers;
     _nullaryFunctions.addAll(other._nullaryFunctions);
     _unaryFunctions = Map.from(other._unaryFunctions);
     _binaryFunctions = Map.from(other._binaryFunctions);
-    _scopeStack.add(other._scopeStack.first);
+    globalScope = other.globalScope.clone();
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
@@ -126,24 +261,20 @@ class Runtime {
     clsFunction = other.clsFunction;
     plotFunction = other.plotFunction;
     hookUpConsole();
-    _readonly = true;
+    _sandboxed = true;
   }
 
   Runtime._subModel(Runtime parent) {
-    _constants = ConstantsTable(parent: parent._constants.root());
+    globalScope = Scope(Object(), constants: parent.globalScope.constants);
     _identifiers = parent._identifiers;
-    _scopeStack.add(Scope()); // Sub-models have their own global scope
-  }
-
-  ConstantsTable<dynamic> get constants {
-    return _constants;
+    // Sub-models have their own global scope
   }
 
   ConstantsTable<String> get identifiers {
     return _identifiers;
   }
 
-  (bool, String?) pushScope() {
+  /*(bool, String?) pushScope() {
     if (_scopeStack.length >= 100) {
       return (
         false,
@@ -152,37 +283,7 @@ class Runtime {
     }
     _scopeStack.add(Scope());
     return (true, null);
-  }
-
-  void popScope() {
-    if (_scopeStack.length > 1) {
-      _scopeStack.removeLast();
-    }
-  }
-
-  List<Scope> stash(int toScopeIndex) {
-    final stashedScopes = <Scope>[];
-    if (toScopeIndex < 0 || toScopeIndex >= _scopeStack.length - 1) {
-      return stashedScopes;
-    }
-
-    while (_scopeStack.length - 1 > toScopeIndex) {
-      stashedScopes.add(_scopeStack.removeLast());
-    }
-    return stashedScopes;
-  }
-
-  void restore(List<Scope> stashedScopes) {
-    for (final scope in stashedScopes.reversed) {
-      _scopeStack.add(scope);
-    }
-  }
-
-  void popChildScopes() {
-    while (_scopeStack.length > 1) {
-      popScope();
-    }
-  }
+  }*/
 
   BreakTarget pushBreakTarget() {
     var breakTarget = BreakTarget();
@@ -260,8 +361,8 @@ class Runtime {
     return currentFunctionReturned();
   }
 
-  Runtime readOnlyChild() {
-    final child = Runtime._readOnlyCopy(this);
+  Runtime sandbox() {
+    final child = Runtime._sandbox(this);
     return child;
   }
 
@@ -271,7 +372,7 @@ class Runtime {
     return scope;
   }
 
-  (dynamic, int?) getVariable(int identifier) {
+  /* (dynamic, int?) getVariable(int identifier) {
     for (var i = _scopeStack.length - 1; i >= 0; i--) {
       final scope = _scopeStack[i];
       if (scope.variables.containsKey(identifier)) {
@@ -303,7 +404,7 @@ class Runtime {
       return;
     }
     _scopeStack.last.variables[identifier] = value;
-  }
+  }*/
 
   bool hasNullaryFunction(String name) {
     return _nullaryFunctions.containsKey(name);
@@ -347,7 +448,7 @@ class Runtime {
     _binaryFunctions[identifiers.include(name)] = binaryFunction;
   }
 
-  bool hasVariable(int identifier) {
+  /*bool hasVariable(int identifier) {
     for (final scope in _scopeStack.reversed) {
       if (scope.variables.containsKey(identifier)) {
         return true;
@@ -399,7 +500,7 @@ class Runtime {
     }
 
     return (null, false, null);
-  }
+  }*/
 
   void print(dynamic value) {
     if (readonly) {
@@ -592,5 +693,5 @@ class Runtime {
         },
       };
 
-  bool get readonly => _readonly;
+  bool get readonly => _sandboxed;
 }

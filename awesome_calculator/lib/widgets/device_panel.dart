@@ -23,14 +23,14 @@ import 'dart:io';
 /// - Multi-line input support (SHIFT-ENTER for soft returns)
 /// - Click-to-position cursor placement
 /// - Physical and virtual keyboard synchronization
-class AncientComputer extends StatefulWidget {
-  const AncientComputer({super.key});
+class DevicePanel extends StatefulWidget {
+  const DevicePanel({super.key});
 
   @override
-  State<AncientComputer> createState() => _AncientComputerState();
+  State<DevicePanel> createState() => _DevicePanelState();
 }
 
-class _AncientComputerState extends State<AncientComputer>
+class _DevicePanelState extends State<DevicePanel>
     with SingleTickerProviderStateMixin {
   late CancellationToken _cancellationToken;
   bool _isExecuting = false;
@@ -424,7 +424,7 @@ class _AncientComputerState extends State<AncientComputer>
 
     Engine.calculate(
           currentInput,
-          runtime: runtime.readOnlyChild(),
+          runtime: runtime.sandbox(),
           constantsSet: constantsSet,
         )
         .then((result) {
