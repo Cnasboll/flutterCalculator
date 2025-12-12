@@ -11,7 +11,7 @@ class TerminalDisplay extends StatelessWidget {
   final String terminalText;
   final int cursorPosition;
   final bool showCursor;
-  final int currentPromptPosition;
+  final int inputStartPosition;
   final String promptSymbol;
   final VoidCallback onTapRequest;
   final void Function(int position) onCursorPositionChanged;
@@ -22,7 +22,7 @@ class TerminalDisplay extends StatelessWidget {
     required this.terminalText,
     required this.cursorPosition,
     required this.showCursor,
-    required this.currentPromptPosition,
+    required this.inputStartPosition,
     required this.promptSymbol,
     required this.onTapRequest,
     required this.onCursorPositionChanged,
@@ -100,10 +100,8 @@ class TerminalDisplay extends StatelessWidget {
                             );
 
                             // Only allow clicking within current input section (after current prompt)
-                            final minPosition =
-                                currentPromptPosition + promptSymbol.length;
                             final newPosition = clickedPosition.clamp(
-                              minPosition,
+                              inputStartPosition,
                               terminalText.length,
                             );
 

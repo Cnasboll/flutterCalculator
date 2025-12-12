@@ -13,6 +13,8 @@ import 'package:awesome_calculator/utils/sound_manager.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
 
 /// A retro-styled computer terminal with a steampunk mechanical keyboard.
 ///
@@ -37,6 +39,9 @@ class _DevicePanelState extends State<DevicePanel>
   List<Offset> _plotPoints = [];
 
   Future<void> _copyAllShqlAssetsToExternalStorage() async {
+    if (kIsWeb) {
+      return; // Path provider is not supported on web
+    }
     try {
       // List all .shql files in assets manually (since Flutter can't list assets at runtime)
       final assetFiles = [
@@ -61,21 +66,44 @@ class _DevicePanelState extends State<DevicePanel>
 
   Future<void> _handleLoadPressed() async {
     try {
-      Directory extDir = Platform.isAndroid
-          ? Directory('/storage/emulated/0/Download')
-          : await getApplicationDocumentsDirectory();
+      String? initialDirectory;
+      if (!kIsWeb) {
+        Directory extDir = Platform.isAndroid
+            ? Directory('/storage/emulated/0/Download')
+            : await getApplicationDocumentsDirectory();
+        initialDirectory = extDir.path;
+      }
+
       final result = await FilePicker.platform.pickFiles(
-        initialDirectory: extDir.path,
+        initialDirectory: initialDirectory,
         type: FileType.custom,
         allowedExtensions: ['shql'],
       );
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final contents = await file.readAsString();
+
+      if (result != null) {
+        String contents;
+        if (kIsWeb) {
+          // On web, read bytes and decode
+          final bytes = result.files.single.bytes;
+          if (bytes != null) {
+            contents = utf8.decode(bytes);
+          } else {
+            throw Exception("Failed to load file bytes on web.");
+          }
+        } else {
+          // On other platforms, read from path
+          final path = result.files.single.path;
+          if (path != null) {
+            final file = File(path);
+            contents = await file.readAsString();
+          } else {
+            throw Exception("File path is null on a non-web platform.");
+          }
+        }
+
         setState(() {
-          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-          final inputStart = _currentPromptPosition + promptLength;
-          _terminalText = _terminalText.substring(0, inputStart) + contents;
+          _terminalText =
+              _terminalText.substring(0, _inputStartPosition) + contents;
           _cursorPosition = _terminalText.length;
         });
       }
@@ -88,8 +116,7 @@ class _DevicePanelState extends State<DevicePanel>
     setState(() {
       // Clear terminal and print banner
       _terminalText = '';
-      _cursorPosition = 0;
-      _currentPromptPosition = 0;
+      _cursorPosition = _inputStartPosition = 0;
       terminalPrint('SHQL v 3.0');
       showPrompt();
     });
@@ -165,7 +192,7 @@ class _DevicePanelState extends State<DevicePanel>
   // Terminal state
   String _terminalText = _promptSymbol;
   int _cursorPosition = _promptSymbol.length;
-  int _currentPromptPosition =
+  int _inputStartPosition =
       0; // Position of the current prompt in _terminalText
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
@@ -270,7 +297,7 @@ class _DevicePanelState extends State<DevicePanel>
     setState(() {
       // Move cursor to end and append text with newline
       _terminalText += '\n$text';
-      _cursorPosition = _terminalText.length;
+      _cursorPosition = _inputStartPosition = _terminalText.length;
     });
   }
 
@@ -316,7 +343,7 @@ class _DevicePanelState extends State<DevicePanel>
       } else {
         _terminalText += '\n';
       }
-      _currentPromptPosition = _terminalText.length;
+      _inputStartPosition = _terminalText.length;
       _cursorPosition = _terminalText.length;
     });
 
@@ -325,16 +352,12 @@ class _DevicePanelState extends State<DevicePanel>
 
   /// Get the current input text (after the current prompt, may be multi-line)
   String _getCurrentLine() {
-    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-    final inputStart = _currentPromptPosition + promptLength;
-    return _terminalText.substring(inputStart).trim();
+    return _terminalText.substring(_inputStartPosition).trim();
   }
 
   /// Replace current input with text from history (handles multi-line)
   void _replaceCurrentLine(String text) {
-    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-    final inputStart = _currentPromptPosition + promptLength;
-    _terminalText = _terminalText.substring(0, inputStart) + text;
+    _terminalText = _terminalText.substring(0, _inputStartPosition) + text;
     _cursorPosition = _terminalText.length;
   }
 
@@ -411,8 +434,7 @@ class _DevicePanelState extends State<DevicePanel>
 
   /// Evaluate the current input and update the cash register display
   void _evaluateCurrentInput() {
-    final inputStart = _currentPromptPosition + _promptSymbol.length;
-    final currentInput = _terminalText.substring(inputStart).trim();
+    final currentInput = _terminalText.substring(_inputStartPosition).trim();
 
     if (currentInput.isEmpty) {
       final (formatted, padding) = _formatResult(null);
@@ -443,7 +465,7 @@ class _DevicePanelState extends State<DevicePanel>
 
   /// Handle up arrow: command history on last line, cursor movement otherwise
   void _handleArrowUp() {
-    final isInInputSection = _cursorPosition >= _currentPromptPosition;
+    final isInInputSection = _cursorPosition >= _inputStartPosition;
 
     if (!isInInputSection) return;
 
@@ -453,9 +475,10 @@ class _DevicePanelState extends State<DevicePanel>
     }
 
     // Check if we're on the first line of input
-    final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-    final inputStart = _currentPromptPosition + promptLength;
-    final firstNewlineInInput = _terminalText.indexOf('\n', inputStart);
+    final firstNewlineInInput = _terminalText.indexOf(
+      '\n',
+      _inputStartPosition,
+    );
     final isOnFirstLine =
         firstNewlineInInput == -1 || _cursorPosition <= firstNewlineInInput;
 
@@ -471,8 +494,8 @@ class _DevicePanelState extends State<DevicePanel>
           _terminalText.lastIndexOf('\n', currentLineStart - 2) + 1;
 
       // Make sure we don't go before the prompt
-      if (prevLineStart < inputStart) {
-        prevLineStart = inputStart;
+      if (prevLineStart < _inputStartPosition) {
+        prevLineStart = _inputStartPosition;
       }
 
       int offsetInLine = _cursorPosition - currentLineStart;
@@ -486,14 +509,13 @@ class _DevicePanelState extends State<DevicePanel>
   void showPrompt() {
     setState(() {
       _terminalText += '\n$_promptSymbol';
-      _currentPromptPosition = _terminalText.length - _promptSymbol.length;
-      _cursorPosition = _terminalText.length;
+      _inputStartPosition = _cursorPosition = _terminalText.length;
     });
   }
 
   /// Handle down arrow: command history on last line, cursor movement otherwise
   void _handleArrowDown() {
-    final isInInputSection = _cursorPosition >= _currentPromptPosition;
+    final isInInputSection = _cursorPosition >= _inputStartPosition;
 
     if (!isInInputSection) return;
 
@@ -527,12 +549,12 @@ class _DevicePanelState extends State<DevicePanel>
   void _handleKeyPress(String key) async {
     if (key == 'ENTER' && !_shiftPressed) {
       SoundManager().playSound('sounds/typewriter-line-break-1.wav');
-      final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-      final inputStart = _currentPromptPosition + promptLength;
       if (_waitingForInput && _readlineCallback != null) {
-        _readlineCallback!(_terminalText.substring(_currentPromptPosition));
+        _readlineCallback!(_terminalText.substring(_inputStartPosition));
       } else {
-        final currentInput = _terminalText.substring(inputStart).trim();
+        final currentInput = _terminalText
+            .substring(_inputStartPosition)
+            .trim();
         if (currentInput.isNotEmpty) {
           setState(() {
             _commandHistory.add(currentInput);
@@ -580,38 +602,27 @@ class _DevicePanelState extends State<DevicePanel>
         if (_cursorPosition > 0) {
           _cursorPosition--;
           // Don't allow cursor before the current prompt
-          final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-          final promptEnd = _currentPromptPosition + promptLength;
-          if (_cursorPosition < promptEnd) {
-            _cursorPosition = promptEnd;
+          if (_cursorPosition < _inputStartPosition) {
+            _cursorPosition = _inputStartPosition;
           }
         }
-        return;
       } else if (key == '→') {
         if (_cursorPosition < _terminalText.length) {
           _cursorPosition++;
         }
-        return;
       } else if (key == '↑') {
         _handleArrowUp();
-        return;
       } else if (key == '↓') {
         _handleArrowDown();
-        return;
       } else if (key == 'LOAD') {
         _handleLoadPressed();
-        return;
       } else if (key == 'RESET') {
         resetEngine();
-        return;
       } else if (key == 'BREAK') {
         if (_isExecuting) {
           _cancellationToken.cancel();
         }
-        return;
-      }
-
-      if (key == 'SHIFT') {
+      } else if (key == 'SHIFT') {
         if (!_physicalShiftPressed) {
           _virtualShiftToggled = !_virtualShiftToggled;
         }
@@ -632,9 +643,7 @@ class _DevicePanelState extends State<DevicePanel>
       } else if (key == 'BACK') {
         // Play typewriter sound for key press
         sound = 'typewriter-backspace-1.wav';
-        final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-        final promptEnd = _currentPromptPosition + promptLength;
-        if (_cursorPosition > promptEnd) {
+        if (_cursorPosition > _inputStartPosition) {
           _terminalText =
               _terminalText.substring(0, _cursorPosition - 1) +
               _terminalText.substring(_cursorPosition);
@@ -642,9 +651,7 @@ class _DevicePanelState extends State<DevicePanel>
         }
       } else if (key == 'DEL') {
         sound = 'typewriter-backspace-1.wav';
-        final promptLength = _readlinePrompt?.length ?? _promptSymbol.length;
-        final promptEnd = _currentPromptPosition + promptLength;
-        if (_cursorPosition >= promptEnd &&
+        if (_cursorPosition >= _inputStartPosition &&
             _cursorPosition < _terminalText.length) {
           _terminalText =
               _terminalText.substring(0, _cursorPosition) +
@@ -686,9 +693,9 @@ class _DevicePanelState extends State<DevicePanel>
       _evaluateCurrentInput();
 
       // Reset one-time shift toggle after use
-      if (_virtualShiftToggled && key != 'SHIFT') {
+      /*if (_virtualShiftToggled && key != 'SHIFT') {
         _virtualShiftToggled = false;
-      }
+      }*/
 
       // Reset pressed key visual feedback
       Future.delayed(_keyPressDuration, () {
@@ -819,7 +826,7 @@ class _DevicePanelState extends State<DevicePanel>
                     terminalText: _terminalText,
                     cursorPosition: _cursorPosition,
                     showCursor: _showCursor,
-                    currentPromptPosition: _currentPromptPosition,
+                    inputStartPosition: _inputStartPosition,
                     promptSymbol: _promptSymbol,
                     onTapRequest: () => _focusNode.requestFocus(),
                     onCursorPositionChanged: (newPosition) {
