@@ -200,7 +200,6 @@ class _DevicePanelState extends State<DevicePanel>
 
   // Terminal I/O state
   bool _waitingForInput = false;
-  String? _readlinePrompt;
   void Function(String)? _readlineCallback;
 
   static const int maxWheels = 12;
@@ -327,13 +326,11 @@ class _DevicePanelState extends State<DevicePanel>
 
     setState(() {
       _waitingForInput = true;
-      _readlinePrompt = prompt ?? "";
       _readlineCallback = (String input) {
         if (!completer.isCompleted) {
           completer.complete(input);
         }
         _waitingForInput = false;
-        _readlinePrompt = null;
         _readlineCallback = null;
       };
 
@@ -411,7 +408,7 @@ class _DevicePanelState extends State<DevicePanel>
 
     if (result is double) {
       if (result.isNaN) {
-        return ('ERROR', padding);
+        return ('GARLIC NAAN', padding);
       }
       if (result.isInfinite) {
         return (result.isNegative ? '-INFINITY' : 'INFINITY', padding);
