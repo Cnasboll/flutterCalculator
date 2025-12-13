@@ -5,46 +5,36 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 abstract class LazyParentExecutionNode extends LazyExecutionNode {
-  LazyParentExecutionNode(super.node, {required super.scope});
+  LazyParentExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    if (await runtime.check(cancellationToken)) {
-      return true;
-    }
     if (children == null) {
       List<ExecutionNode> r = [];
-      for (var child in node.children) {
-        var childRuntime = Engine.createExecutionNode(child, scope);
+      for (var child in node.children.reversed) {
+        var childRuntime = Engine.createExecutionNode(child, thread, scope);
         if (childRuntime == null) {
           error = 'Failed to create execution node for child node.';
-          return true;
+          return TickResult.completed;
         }
 
         r.add(childRuntime);
       }
-      children = r;
+      children = r.reversed.toList();
+      return TickResult.delegated;
     }
 
-    while (_currentChildIndex < children!.length) {
-      var child = children![_currentChildIndex];
-      if (!await tickChild(child, runtime, cancellationToken)) {
-        return false;
-      }
-      if (await runtime.check(cancellationToken)) {
-        return true;
-      }
-      ++_currentChildIndex;
-    }
-    onChildrenComplete();
-    return true;
+    result = evaluate();
+    return TickResult.completed;
   }
 
-  void onChildrenComplete();
-
+  dynamic evaluate();
   List<ExecutionNode>? children;
-  int _currentChildIndex = 0;
 }

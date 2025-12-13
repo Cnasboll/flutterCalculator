@@ -2,44 +2,42 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
 class UserFunctionExecutionNode extends ExecutionNode {
   UserFunctionExecutionNode(
     this.userFunction,
     this.arguments, {
+    required super.thread,
     required super.scope,
   });
 
   final UserFunction userFunction;
-  final List<ExecutionNode> arguments;
+  final List<ParseTree> arguments;
+  List<ExecutionNode>? _argumentsStack;
   ExecutionNode? body;
-  int _argumentIndex = 0;
-  ReturnTarget? _returnTarget;
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    if (_returnTarget == null) {
-      // Tick current argument nodes
-      while (_argumentIndex < arguments.length) {
-        if (!await tickChild(
-          arguments[_argumentIndex],
-          runtime,
-          cancellationToken,
-        )) {
-          return false;
-        }
-        if (await runtime.check(cancellationToken)) {
-          return true;
-        }
-        ++_argumentIndex;
+    if (_argumentsStack == null) {
+      _argumentsStack = <ExecutionNode>[];
+      for (var argument in arguments.reversed) {
+        _argumentsStack!.add(
+          Engine.createExecutionNode(argument, thread, scope)!,
+        );
       }
+      return TickResult.delegated;
+    }
 
+    if (returnTarget == null) {
+      // TODO: Keep track of recursion depth and throw error if too deep
       var childScope = Scope(Object(), parent: userFunction.scope);
       // Assign argument values to identifiers
       var argumentIdentifiers = userFunction.argumentIdentifiers;
+      var arguments = _argumentsStack!.reversed.toList();
       for (int i = 0; i < argumentIdentifiers.length; i++) {
         var argument = arguments[i].result;
         if (argument is UserFunction) {
@@ -53,24 +51,18 @@ class UserFunctionExecutionNode extends ExecutionNode {
           childScope.members.setVariable(argumentIdentifiers[i], argument);
         }
       }
-      _returnTarget = runtime.pushReturnTarget();
-      body = Engine.createExecutionNode(userFunction.body, childScope);
-    }
-    var returnTarget = _returnTarget!;
-    // Tick the body
-    if (!await tickChild(body!, runtime, cancellationToken)) {
-      // Handle return value
-      if (await returnTarget.check(cancellationToken)) {
-        if (returnTarget.hasReturnValue) {
-          result = returnTarget.returnValue;
-        }
-        runtime.popReturnTarget();
-        return true;
-      }
-      return false;
+      returnTarget = thread.pushReturnTarget();
+      body = Engine.createExecutionNode(userFunction.body, thread, childScope);
+      return TickResult.delegated;
     }
 
-    runtime.popReturnTarget();
-    return true;
+    error ??= body!.error;
+    if (returnTarget!.hasReturnValue) {
+      result ??= returnTarget!.returnValue;
+    } else {
+      result ??= body!.result;
+    }
+
+    return TickResult.completed;
   }
 }

@@ -5,43 +5,48 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class ReturnStatementExecutionNode extends LazyExecutionNode {
-  ReturnStatementExecutionNode(super.node, {required super.scope});
+  ReturnStatementExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    var returnTarget = runtime.currentReturnTarget;
+    var returnTarget = thread.currentReturnTarget;
     if (returnTarget == null) {
       error = 'Return statement used outside of a function.';
-      return true;
+      return TickResult.completed;
     }
     if (node.children.isNotEmpty && _returnValueNode == null) {
       if (node.children.length > 1) {
         error = 'Return statement can have at most one child.';
-        return true;
+        return TickResult.completed;
       }
 
-      _returnValueNode = Engine.createExecutionNode(node.children[0], scope);
+      _returnValueNode = Engine.createExecutionNode(
+        node.children[0],
+        thread,
+        scope,
+      );
       if (_returnValueNode == null) {
         error = 'Failed to create execution node for return value.';
-        return true;
+        return TickResult.completed;
       }
+      return TickResult.delegated;
     }
 
     if (_returnValueNode != null) {
-      if (!await tickChild(_returnValueNode!, runtime, cancellationToken)) {
-        if (await runtime.check(cancellationToken)) {
-          return true;
-        }
-        returnTarget.returnValue(_returnValueNode!.result);
-        return true;
-      }
+      result = _returnValueNode!.result;
+      error ??= _returnValueNode!.error;
+      returnTarget.returnAValue(_returnValueNode!.result);
+    } else {
+      returnTarget.returnNothing();
     }
-
-    returnTarget.returnNothing();
-    return true;
+    return TickResult.completed;
   }
 
   ExecutionNode? _returnValueNode;

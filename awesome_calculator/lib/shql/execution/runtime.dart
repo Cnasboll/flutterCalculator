@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
+import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
@@ -24,6 +25,194 @@ class Constant {
   final int identifier;
 
   Constant(this.value, this.identifier);
+}
+
+enum BreakState { none, breaked, continued }
+
+class BreakTarget {
+  BreakState _state = BreakState.none;
+  void breakExecution() {
+    _state = BreakState.breaked;
+  }
+
+  void continueExecution() {
+    _state = BreakState.continued;
+  }
+
+  bool clearContinued() {
+    var continued = _state == BreakState.continued;
+    if (continued) {
+      _state = BreakState.none;
+    }
+    return continued;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _state == BreakState.breaked;
+  }
+}
+
+class ReturnTarget {
+  bool _returned = false;
+  bool _hasReturnValue = false;
+
+  dynamic _returnValue;
+
+  dynamic get returnValue => _returnValue;
+  bool get hasReturnValue => _hasReturnValue;
+
+  void returnNothing() {
+    _returned = true;
+    _hasReturnValue = false;
+    _returnValue = null;
+  }
+
+  void returnAValue(dynamic returnValue) {
+    _returned = true;
+    _hasReturnValue = true;
+    _returnValue = returnValue;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _returned;
+  }
+}
+
+class Thread {
+  final int id;
+  final List<ExecutionNode> executionStack = [];
+  final List<BreakTarget> _breakTargets = [];
+  final List<ReturnTarget> _returnTargets = [];
+  Thread({required this.id});
+  bool get isIdle => executionStack.isEmpty;
+  bool get isRunning => executionStack.isNotEmpty;
+  ExecutionNode? get currentNode => isRunning ? executionStack.last : null;
+
+  ExecutionNode? popNode() {
+    if (isRunning) {
+      return executionStack.removeLast();
+    }
+    return null;
+  }
+
+  ExecutionNode? onExecutionNodeComplete(ExecutionNode executionNode) {
+    if (isRunning) {
+      error ??= executionNode.error;
+      result = executionNode.result;
+      return popNode();
+    }
+    return null;
+  }
+
+  void pushNode(ExecutionNode executionNode) {
+    executionStack.add(executionNode);
+  }
+
+  BreakTarget pushBreakTarget() {
+    var breakTarget = BreakTarget();
+    _breakTargets.add(breakTarget);
+    return breakTarget;
+  }
+
+  void popBreakTarget() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.removeLast();
+    }
+  }
+
+  void breakCurrentExecution() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.last.breakExecution();
+    }
+  }
+
+  BreakTarget? get currentBreakTarget {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last;
+    }
+    return null;
+  }
+
+  BreakState currentExecutionBreakState() {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last._state;
+    }
+    return BreakState.none;
+  }
+
+  void clearBreakTargets() {
+    _breakTargets.clear();
+  }
+
+  ReturnTarget pushReturnTarget() {
+    var returnTarget = ReturnTarget();
+    _returnTargets.add(returnTarget);
+    return returnTarget;
+  }
+
+  void popReturnTarget() {
+    if (_returnTargets.isNotEmpty) {
+      _returnTargets.removeLast();
+    }
+  }
+
+  ReturnTarget? get currentReturnTarget {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last;
+    }
+    return null;
+  }
+
+  bool currentFunctionReturned() {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last._returned;
+    }
+    return false;
+  }
+
+  void clearReturnTargets() {
+    _returnTargets.clear();
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    if (currentExecutionBreakState() != BreakState.none) {
+      return true;
+    }
+    return currentFunctionReturned();
+  }
+
+  Future<bool> tick(
+    Runtime runtime, [
+    CancellationToken? cancellationToken,
+  ]) async {
+    while ((cancellationToken == null || !await cancellationToken.check())) {
+      var currentNode = executionStack.isNotEmpty ? executionStack.last : null;
+      if (currentNode == null) {
+        return true;
+      }
+      var tickResult = await currentNode.tick(runtime, cancellationToken);
+      if (tickResult == TickResult.iterated) {
+        return false;
+      }
+      await Future.delayed(const Duration(milliseconds: 1));
+    }
+    return true;
+  }
+
+  String? error;
+  dynamic result;
+  dynamic getResult() {
+    return result;
+  }
 }
 
 class Object {
@@ -159,71 +348,13 @@ class Scope {
   }
 }
 
-enum BreakState { none, breaked, continued }
-
-class BreakTarget {
-  BreakState _state = BreakState.none;
-  void breakExecution() {
-    _state = BreakState.breaked;
-  }
-
-  void continueExecution() {
-    _state = BreakState.continued;
-  }
-
-  bool clearContinued() {
-    var continued = _state == BreakState.continued;
-    if (continued) {
-      _state = BreakState.none;
-    }
-    return continued;
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    return _state == BreakState.breaked;
-  }
-}
-
-class ReturnTarget {
-  bool _returned = false;
-  bool _hasReturnValue = false;
-
-  dynamic _returnValue;
-
-  dynamic get returnValue => _returnValue;
-  bool get hasReturnValue => _hasReturnValue;
-
-  void returnNothing() {
-    _returned = true;
-    _hasReturnValue = false;
-    _returnValue = null;
-  }
-
-  void returnAValue(dynamic returnValue) {
-    _returned = true;
-    _hasReturnValue = true;
-    _returnValue = returnValue;
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    return _returned;
-  }
-}
-
 class Runtime {
   late final ConstantsTable<String> _identifiers;
   final Map<String, Function()> _nullaryFunctions = {};
   late final Map<int, Function(dynamic p1)> _unaryFunctions;
   late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
+  late final Thread mainThread;
   late final Scope globalScope;
-  final List<BreakTarget> _breakTargets = [];
-  final List<ReturnTarget> _returnTargets = [];
   final Map<int, Runtime> _subModelScopes = {};
   bool _sandboxed = false;
 
@@ -241,6 +372,7 @@ class Runtime {
     _identifiers = constantsSet?.identifiers ?? ConstantsTable();
     _unaryFunctions = Map.from(unaryFunctions);
     _binaryFunctions = Map.from(binaryFunctions);
+    mainThread = Thread(id: 0);
     globalScope = Scope(
       Object(),
       constants: constantsSet?.constants ?? ConstantsTable(),
@@ -253,6 +385,7 @@ class Runtime {
     _nullaryFunctions.addAll(other._nullaryFunctions);
     _unaryFunctions = Map.from(other._unaryFunctions);
     _binaryFunctions = Map.from(other._binaryFunctions);
+    mainThread = Thread(id: 0);
     globalScope = other.globalScope.clone();
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
@@ -265,6 +398,7 @@ class Runtime {
   }
 
   Runtime._subModel(Runtime parent) {
+    mainThread = parent.mainThread;
     globalScope = Scope(Object(), constants: parent.globalScope.constants);
     _identifiers = parent._identifiers;
     // Sub-models have their own global scope
@@ -284,82 +418,6 @@ class Runtime {
     _scopeStack.add(Scope());
     return (true, null);
   }*/
-
-  BreakTarget pushBreakTarget() {
-    var breakTarget = BreakTarget();
-    _breakTargets.add(breakTarget);
-    return breakTarget;
-  }
-
-  void popBreakTarget() {
-    if (_breakTargets.isNotEmpty) {
-      _breakTargets.removeLast();
-    }
-  }
-
-  void breakCurrentExecution() {
-    if (_breakTargets.isNotEmpty) {
-      _breakTargets.last.breakExecution();
-    }
-  }
-
-  BreakTarget? get currentBreakTarget {
-    if (_breakTargets.isNotEmpty) {
-      return _breakTargets.last;
-    }
-    return null;
-  }
-
-  BreakState currentExecutionBreakState() {
-    if (_breakTargets.isNotEmpty) {
-      return _breakTargets.last._state;
-    }
-    return BreakState.none;
-  }
-
-  void clearBreakTargets() {
-    _breakTargets.clear();
-  }
-
-  ReturnTarget pushReturnTarget() {
-    var returnTarget = ReturnTarget();
-    _returnTargets.add(returnTarget);
-    return returnTarget;
-  }
-
-  void popReturnTarget() {
-    if (_returnTargets.isNotEmpty) {
-      _returnTargets.removeLast();
-    }
-  }
-
-  ReturnTarget? get currentReturnTarget {
-    if (_returnTargets.isNotEmpty) {
-      return _returnTargets.last;
-    }
-    return null;
-  }
-
-  bool currentFunctionReturned() {
-    if (_returnTargets.isNotEmpty) {
-      return _returnTargets.last._returned;
-    }
-    return false;
-  }
-
-  void clearReturnTargets() {
-    _returnTargets.clear();
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    if (currentExecutionBreakState() != BreakState.none) {
-      return true;
-    }
-    return currentFunctionReturned();
-  }
 
   Runtime sandbox() {
     final child = Runtime._sandbox(this);

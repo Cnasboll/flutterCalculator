@@ -413,6 +413,10 @@ void main() {
     expect((await Engine.execute('f(x):=x*2;f(2)')), 4);
   });
 
+  test('Test two argument user function', () async {
+    expect((await Engine.execute('f(a,b):=a-b;f(10,2)')), 8);
+  });
+
   test('Test recursion', () async {
     expect(
       (await Engine.execute(
@@ -447,6 +451,24 @@ void main() {
   test("Test return", () async {
     expect(
       (await Engine.execute(
+        "f(x) := IF x % 2 = 0 THEN RETURN x+1 ELSE RETURN x; f(2)",
+      )),
+      3,
+    );
+  });
+
+  test("Test block return", () async {
+    expect(
+      (await Engine.execute(
+        "f(x) := BEGIN IF x % 2 = 0 THEN RETURN x+1; RETURN x; END; f(2)",
+      )),
+      3,
+    );
+  });
+
+  test("Test factorial with return", () async {
+    expect(
+      (await Engine.execute(
         "f(x) := BEGIN IF x <= 1 THEN RETURN 1; RETURN x * f(x-1); END; f(5)",
       )),
       120,
@@ -468,6 +490,49 @@ void main() {
         "x := 0; y := 0; WHILE x < 10 DO BEGIN x := x + 1; IF x % 2 = 0 THEN CONTINUE; y := y + 1; END; y",
       )),
       5,
+    );
+  });
+
+  test("Test repeat until", () async {
+    expect(
+      (await Engine.execute("x := 0; REPEAT x := x + 1 UNTIL x = 10; x")),
+      10,
+    );
+  });
+
+  test("Test for loop", () async {
+    expect(
+      (await Engine.execute(
+        "sum := 0; FOR i := 1 TO 10 DO sum := sum + i; sum",
+      )),
+      55,
+    );
+  });
+
+  test("Test for loop with step", () async {
+    expect(
+      (await Engine.execute(
+        "sum := 0; FOR i := 1 TO 10 STEP 2 DO sum := sum + i; sum",
+      )),
+      36,
+    );
+  });
+
+  test("Test for loop counting down", () async {
+    expect(
+      (await Engine.execute(
+        "sum := 0; FOR i := 10 TO 1 STEP -1 DO sum := sum + i; sum",
+      )),
+      55,
+    );
+  });
+
+  test("Can assign to list variable", () async {
+    expect(
+      (await Engine.execute(
+        "x := [1,2,3];x[0]",
+      )),
+      1,
     );
   });
 }

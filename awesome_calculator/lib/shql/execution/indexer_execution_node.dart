@@ -1,9 +1,13 @@
 import 'package:awesome_calculator/shql/execution/null_aware_binary_node.dart';
 
 class IndexerExecutionNode extends NullAwareBinaryNode {
-  IndexerExecutionNode(super.lhs, super.rhs, {required super.scope});
+  IndexerExecutionNode(
+    super.lhs,
+    super.rhs, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult) async =>
-      lhsResult[rhsResult];
+  dynamic applyNotNull() async => lhsResult[rhsResult];
 }

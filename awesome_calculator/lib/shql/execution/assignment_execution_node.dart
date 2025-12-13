@@ -1,5 +1,6 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
+import 'package:awesome_calculator/shql/execution/set_variable_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
@@ -7,133 +8,42 @@ import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class AssignmentExecutionNode extends LazyExecutionNode {
-  AssignmentExecutionNode(super.node, {required super.scope});
+  AssignmentExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    if (await runtime.check(cancellationToken)) {
-      return true;
-    }
-
     if (_rhs == null) {
-      if (_indexerNode == null) {
-        var (indexerNode, e) = tryCreateIndexerExecutionNode(runtime);
-        if (e != null) {
-          error = e;
-          return true;
-        }
-        _indexerNode = indexerNode;
+      var (rhs, e) = createRhs(runtime);
+      if (e != null) {
+        error = e;
+        return TickResult.completed;
       }
-
-      if (_indexerNode != null && _rhs == null) {
-        if (!await tickChild(_indexerNode!, runtime, cancellationToken)) {
-          return false;
-        }
+      if (rhs == null) {
+        return TickResult.completed;
       }
-
-      if (await runtime.check(cancellationToken)) {
-        return true;
-      }
-
-      if (_rhs == null) {
-        var (rhs, e) = createRhs(runtime);
-        if (e != null) {
-          error = e;
-          return true;
-        }
-        if (rhs == null) {
-          return true;
-        }
-        _rhs = rhs;
-      }
+      _rhs = rhs;
+      return TickResult.delegated;
     }
 
-    if (!await tickChild(_rhs!, runtime, cancellationToken)) {
-      return false;
-    }
-
-    if (await runtime.check(cancellationToken)) {
-      return true;
-    }
-
-    if (_indexerNode != null) {
-      // Assignment to indexer
-      var identifier = node.children[0].qualifier!;
-      var (target, containingScope, isConstant) = scope.resolveIdentifier(
-        identifier,
-      );
-      var resolved = containingScope != null;
-      var isUserFunction = resolved && target is UserFunction;
-      var isVariable = resolved && !isUserFunction && !isConstant;
-      if (isConstant) {
-        error = "Cannot assign to constant.";
-        return true;
-      }
-      if (!isVariable) {
-        error = "Cannot assign to non-variable identifier.";
-        return true;
-      }
-      target[_indexerNode!.result] = _rhs!.result;
-
-      if (await runtime.check(cancellationToken)) {
-        return true;
-      }
-
-      return true;
-    }
-
-    var identifier = node.children[0].qualifier!;
-
-    if (_rhs!.result is UserFunction) {
-      scope.defineUserFunction(identifier, _rhs!.result);
-      return true;
-    } else {
-      var (containingScope, error) = scope.setVariable(
-        identifier,
+    if (_assignmentToGivenExecutionNode == null) {
+      _assignmentToGivenExecutionNode = SetVariableExecutionNode(
+        node.children[0],
         _rhs!.result,
+        thread: thread,
+        scope: scope,
       );
-      if (error != null) {
-        this.error = error;
-        return true;
-      }
+      return TickResult.delegated;
     }
-
-    if (await runtime.check(cancellationToken)) {
-      return true;
-    }
-
-    return true;
-  }
-
-  (ExecutionNode?, String?) tryCreateIndexerExecutionNode(Runtime runtime) {
-    // Verify that first child is an identifier
-    if (node.children[0].symbol != Symbols.identifier) {
-      return (null, "Left-hand side of assignment must be an identifier.");
-    }
-
-    // Check if lhs has an argument which is a single element list (for indexer)
-    // Eg: a[0] := 5 meaning Symbols.list
-    var identifierChild = node.children[0];
-    var childrenCount = identifierChild.children.length;
-    var identifier = identifierChild.qualifier!;
-    var name = runtime.identifiers.constants[identifier];
-    if (childrenCount > 1) {
-      return (
-        null,
-        "Identifier $name can have at most one child, ${node.children.length} given.",
-      );
-    }
-
-    if (childrenCount == 1) {
-      var child = identifierChild.children[0];
-      if (child.symbol == Symbols.list && child.children.length == 1) {
-        return (Engine.createExecutionNode(child.children[0], scope), null);
-      }
-    }
-    return (null, null);
+    result = _assignmentToGivenExecutionNode!.result;
+    error ??= _assignmentToGivenExecutionNode!.error;
+    return TickResult.completed;
   }
 
   (ExecutionNode?, String?) createRhs(Runtime runtime) {
@@ -143,11 +53,6 @@ class AssignmentExecutionNode extends LazyExecutionNode {
         null,
         "Assignment operator requires exactly two operands, ${node.children.length} given.",
       );
-    }
-
-    // Verify that first child is an identifier
-    if (node.children[0].symbol != Symbols.identifier) {
-      return (null, "Left-hand side of assignment must be an identifier.");
     }
 
     // Check if lhs has an argument which is a tuple (for function definition)
@@ -178,7 +83,7 @@ class AssignmentExecutionNode extends LazyExecutionNode {
       }
     }
 
-    return (Engine.createExecutionNode(node.children[1], scope)!, null);
+    return (Engine.createExecutionNode(node.children[1], thread, scope)!, null);
   }
 
   bool defineUserFunction(
@@ -211,6 +116,6 @@ class AssignmentExecutionNode extends LazyExecutionNode {
     return true;
   }
 
-  ExecutionNode? _indexerNode;
+  SetVariableExecutionNode? _assignmentToGivenExecutionNode;
   ExecutionNode? _rhs;
 }

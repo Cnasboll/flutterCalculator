@@ -1,17 +1,29 @@
-import 'package:awesome_calculator/shql/execution/binary_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/binary_operator_execution_node.dart';
 
-abstract class NullAwareBinaryNode extends BinaryExecutionNode {
-  NullAwareBinaryNode(super.lhs, super.rhs, {required super.scope});
+abstract class NullAwareBinaryNode extends BinaryOperatorExecutionNode {
+  NullAwareBinaryNode(
+    super.lhsTree,
+    super.rhsTree, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<void> onChildrenComplete(Runtime runtime) async {
-    if (lhs.result == null || rhs.result == null) {
-      result = null;
-      return;
+  dynamic apply() {
+    if (lhsResult == null || rhsResult == null) {
+      return null;
     }
-    result = await evaluate(lhs.result, rhs.result);
+    return applyNotNull();
   }
 
-  Future<dynamic> evaluate(dynamic lhsResult, dynamic rhsResult);
+  dynamic applyNotNull();
+
+  @override
+  bool shortCircuit() {
+    if (lhsResult == null) {
+      result = null;
+      return true;
+    }
+    return false;
+  }
 }

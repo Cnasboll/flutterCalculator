@@ -223,27 +223,32 @@ class Parser {
     }
 
     if (tryConsumeSymbol(tokenEnumerator, Symbols.forLoop)) {
-      var children = <ParseTree>[
-        parseExpression(tokenEnumerator, constantsSet),
-      ];
+      var initialization = parseExpression(tokenEnumerator, constantsSet);
 
       if (!tryConsumeSymbol(tokenEnumerator, Symbols.toKeyword)) {
         return (null, 'Expected TO after FOR statement.');
       }
 
-      children.add(parseExpression(tokenEnumerator, constantsSet));
+      ParseTree toExpression = parseExpression(tokenEnumerator, constantsSet);
 
-      if (!tryConsumeSymbol(tokenEnumerator, Symbols.stepKeyword)) {
-        return (null, 'Expected STEP after FOR statement.');
+      ParseTree? stepExpression;
+      if (tryConsumeSymbol(tokenEnumerator, Symbols.stepKeyword)) {
+        stepExpression = parseExpression(tokenEnumerator, constantsSet);
       }
-
-      children.add(parseExpression(tokenEnumerator, constantsSet));
 
       if (!tryConsumeSymbol(tokenEnumerator, Symbols.doKeyword)) {
         return (null, 'Expected DO after WHILE condition.');
       }
 
-      children.add(parseExpression(tokenEnumerator, constantsSet));
+      var children = <ParseTree>[initialization];
+      var body = parseExpression(tokenEnumerator, constantsSet);
+
+      children.add(body);
+      children.add(toExpression);
+
+      if (stepExpression != null) {
+        children.add(stepExpression);
+      }
 
       return (ParseTree(Symbols.forLoop, children), null);
     }

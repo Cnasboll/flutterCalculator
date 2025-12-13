@@ -1,11 +1,17 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
+import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class LambdaExpressionExecutionNode extends LazyExecutionNode {
-  LambdaExpressionExecutionNode(this.name, super.node, {required super.scope}) {
+  LambdaExpressionExecutionNode(
+    this.name,
+    super.node, {
+    required super.thread,
+    required super.scope,
+  }) {
     var (userFunction, e) = createUserFunction();
     if (e != null) {
       error = e;
@@ -19,6 +25,7 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
     this.name,
     super.node,
     UserFunction result, {
+    required super.thread,
     required super.scope,
   }) {
     this.result = result;
@@ -28,11 +35,11 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
   final String name;
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    return true;
+    return TickResult.completed;
   }
 
   (UserFunction?, String?) createUserFunction() {

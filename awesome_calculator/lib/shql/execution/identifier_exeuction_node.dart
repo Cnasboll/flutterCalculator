@@ -1,31 +1,62 @@
+import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
-import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/indexer_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/index_to_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/lambda_expression_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/nullary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/unary_lambda_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/user_function_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/lazy_child_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/artithmetic/multiplication_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/operators/artithmetic/multiply_with_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
-class IdentifierExecutionNode extends LazyChildExecutionNode {
-  IdentifierExecutionNode(super.node, {required super.scope});
+class IdentifierExecutionNode extends LazyExecutionNode {
+  IdentifierExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
+
+  ExecutionNode? _childNode;
 
   @override
-  ExecutionNode? createChildNode(Runtime runtime) {
+  Future<TickResult> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  ) async {
+    if (_childNode == null) {
+      var (childNode, value, error) = createChildNode(runtime);
+      if (error != null) {
+        this.error = error;
+        return TickResult.completed;
+      }
+      if (childNode == null) {
+        result = value;
+        return TickResult.completed;
+      }
+      _childNode = childNode;
+      return TickResult.delegated;
+    }
+
+    result = _childNode!.result;
+    error ??= _childNode!.error;
+    return TickResult.completed;
+  }
+
+  (ExecutionNode?, dynamic, String?) createChildNode(Runtime runtime) {
     var identifier = node.qualifier!;
     var name = runtime.identifiers.constants[identifier];
 
     // A identifier can have 0 or 1 chhildren
     if (node.children.length > 1) {
-      error =
-          "Identifier $name can have at most one child, ${node.children.length} given.";
-      return null;
+      return (
+        null,
+        null,
+        "Identifier $name can have at most one child, ${node.children.length} given.",
+      );
     }
 
     // Try to resolve identifier (variables shadow constants, walks parent chain)
@@ -51,7 +82,7 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
       var childSymbol = child.symbol;
 
       if (childSymbol == Symbols.list) {
-        return createIndexerExecutionNode(
+        return createIndexToExecutionNode(
           runtime,
           isVariable,
           name,
@@ -75,13 +106,15 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
         );
       }
 
-      error = "Identifier $name can only have a tuple or list as child.";
-      return null;
+      return (
+        null,
+        null,
+        "Identifier $name can only have a tuple or list as child.",
+      );
     }
 
     if (isVariable || isConstant) {
-      result = value;
-      return null;
+      return (null, value, null);
     }
 
     if (nullaryFunction != null &&
@@ -103,28 +136,35 @@ class IdentifierExecutionNode extends LazyChildExecutionNode {
     }
 
     if (unaryFunction != null || binaryFunction != null) {
-      error = "Missing arguments list to function $name().";
-      return null;
+      return (null, null, "Missing arguments list to function $name().");
     }
 
     if (userFunction != null) {
-      return LambdaExpressionExecutionNode.alias(
-        name,
-        node,
-        userFunction,
-        scope: scope,
+      return (
+        LambdaExpressionExecutionNode.alias(
+          name,
+          node,
+          userFunction,
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
       );
     }
 
-    error = '''Unidentified identifier "$name" used as a constant.
+    return (
+      null,
+      null,
+      '''Unidentified identifier "$name" used as a constant.
 
 Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than:     name ~ Batman
 
-''';
-    return null;
+''',
+    );
   }
 
-  ExecutionNode? createFunctionCallExecutionNode(
+  (ExecutionNode?, dynamic, String?) createFunctionCallExecutionNode(
     Runtime runtime,
     bool isVariable,
     bool isConstant,
@@ -139,102 +179,136 @@ Hint: enclose strings in quotes, e.g.          name ~ "Batman"       rather than
     var argumentCount = arguments.length;
     if (isVariable || isConstant) {
       if (argumentCount != 1) {
-        error =
-            "Attempt to use ${isConstant ? "constant" : "variable"} $name as a function: ($argumentCount) argument(s) given.";
-        return null;
+        return (
+          null,
+          null,
+          "Attempt to use ${isConstant ? "constant" : "variable"} $name as a function: ($argumentCount) argument(s) given.",
+        );
       }
 
       // Special case: treat identifier followed by single-element tuple as multiplication
-      var lhs = Engine.createExecutionNode(arguments[0], scope);
-      return MultiplicationExecutionNode(
-        AprioriExecutionNode(value, scope: scope),
-        lhs!,
-        scope: scope,
+      return (
+        MultiplyWithExecutionNode(
+          arguments[0],
+          value,
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
       );
     }
 
     if (userFunction != null) {
       if (argumentCount != userFunction.argumentIdentifiers.length) {
-        error =
-            "Function $name) takes ${userFunction.argumentIdentifiers.length} arguments, $argumentCount given.";
-        return null;
+        return (
+          null,
+          null,
+          "Function $name) takes ${userFunction.argumentIdentifiers.length} arguments, $argumentCount given.",
+        );
       }
 
-      var argumentNodes = <ExecutionNode>[];
-      for (var argument in arguments) {
-        argumentNodes.add(Engine.createExecutionNode(argument, scope)!);
-      }
-
-      return UserFunctionExecutionNode(
-        userFunction,
-        argumentNodes,
-        scope: scope,
+      return (
+        UserFunctionExecutionNode(
+          userFunction,
+          arguments,
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
       );
     }
 
     if (nullaryFunction != null) {
       if (argumentCount != 0) {
-        error = "Function $name() takes 0 arguments, $argumentCount given.";
-        return null;
+        return (
+          null,
+          null,
+          "Function $name() takes 0 arguments, $argumentCount given.",
+        );
       }
-      return NullaryLambdaExecutionNode(nullaryFunction, scope: scope);
+      return (
+        NullaryLambdaExecutionNode(
+          nullaryFunction,
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
+      );
     }
 
     if (unaryFunction != null) {
       if (node.children.length != 1) {
         var argumentCount = node.children.length;
-        error = "Function $name() takes 1 argument, $argumentCount given.";
-        return null;
+        return (
+          null,
+          null,
+          "Function $name() takes 1 argument, $argumentCount given.",
+        );
       }
-      return UnaryLambdaExecutionNode(
-        unaryFunction,
-        Engine.createExecutionNode(arguments[0], scope)!,
-        scope: scope,
+      return (
+        UnaryLambdaExecutionNode(
+          unaryFunction,
+          arguments[0],
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
       );
     }
 
     if (binaryFunction != null) {
       if (argumentCount != 2) {
-        error = "Function $name() takes 2 arguments, $argumentCount given.";
-        return null;
+        return (
+          null,
+          null,
+          "Function $name() takes 2 arguments, $argumentCount given.",
+        );
       }
 
-      return BinaryLambdaExecutionNode(
-        binaryFunction,
-        Engine.createExecutionNode(arguments[0], scope)!,
-        Engine.createExecutionNode(arguments[1], scope)!,
-        scope: scope,
+      return (
+        BinaryLambdaExecutionNode(
+          binaryFunction,
+          arguments[0],
+          arguments[1],
+          thread: thread,
+          scope: scope,
+        ),
+        null,
+        null,
       );
     }
-    error = 'Unidentified identifier "$name" used as a function.';
-    return null;
+    return (null, null, 'Unidentified identifier "$name" used as a function.');
   }
 
-  IndexerExecutionNode? createIndexerExecutionNode(
+  (IndexToExecutionNode?, dynamic, String?) createIndexToExecutionNode(
     Runtime runtime,
     bool isValue,
     String identifier,
-    value,
+    index,
     List<ParseTree> indexes,
   ) {
     var argumentCount = indexes.length;
     if (isValue) {
       if (argumentCount != 1) {
-        error =
-            "Attempt to use value $identifier as a function: ($argumentCount) argument(s) given.";
-        return null;
+        return (
+          null,
+          null,
+          "Attempt to use value $identifier as a function: ($argumentCount) argument(s) given.",
+        );
       }
 
       // Special case: treat identifier followed by single-element list as indexing
-      var lhs = Engine.createExecutionNode(indexes[0], scope);
-      return IndexerExecutionNode(
-        AprioriExecutionNode(value, scope: scope),
-        lhs!,
-        scope: scope,
+      return (
+        IndexToExecutionNode(indexes[0], index, thread: thread, scope: scope),
+        null,
+        null,
       );
     }
 
-    error = 'Identifier "$identifier" used with indexer.';
-    return null;
+    return (null, null, 'Identifier "$identifier" used with indexer.');
   }
 }

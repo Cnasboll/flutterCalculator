@@ -3,18 +3,18 @@ import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class ContinueStatementExecutionNode extends ExecutionNode {
-  ContinueStatementExecutionNode({required super.scope});
+  ContinueStatementExecutionNode({required super.thread, required super.scope});
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    var breakTarget = runtime.currentBreakTarget;
+    var breakTarget = thread.currentBreakTarget;
     if (breakTarget == null) {
       error = 'Continue statement used outside of a loop.';
-      return true;
+      return TickResult.completed;
     }
     breakTarget.continueExecution();
-    return true;
+    return TickResult.completed;
   }
 }

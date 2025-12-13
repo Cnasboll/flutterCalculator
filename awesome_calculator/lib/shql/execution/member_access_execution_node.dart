@@ -1,99 +1,65 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
-import 'package:awesome_calculator/shql/engine/engine.dart';
+import 'package:awesome_calculator/shql/execution/execution_node.dart';
+import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
-import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class MemberAccessExecutionNode extends LazyExecutionNode {
-  MemberAccessExecutionNode(super.node, {required super.scope});
+  MemberAccessExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
+
+  IdentifierExecutionNode? _leftIdentifierNode;
+  IdentifierExecutionNode? _rightIdentifierNode;
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
     if (node.children.length != 2) {
       error = 'Member access must have exactly 2 children';
-      return true;
+      return TickResult.completed;
     }
 
-    var leftChild = node.children[0];
-    var rightChild = node.children[1];
-
-    // Right side must always be an identifier
-    if (rightChild.symbol != Symbols.identifier) {
-      error = 'Right side of member access must be an identifier';
-      return true;
-    }
-
-    Runtime targetScope;
-
-    if (leftChild.symbol == Symbols.identifier) {
-      // Simple case: a.b
-      targetScope = runtime.getSubModelScope(leftChild.qualifier!);
-    } else if (leftChild.symbol == Symbols.memberAccess) {
-      // Recursive case: a.b.c (where a.b is another memberAccess)
-      // We need to resolve the left side to get the appropriate scope
-      targetScope = _resolveMemberAccessToScope(leftChild, runtime);
-    } else {
-      error =
-          'Left side of member access must be an identifier or another member access';
-      return true;
-    }
-
-    // Now evaluate the right identifier in the target scope
-    var rightNode = Engine.createExecutionNode(
-      rightChild,
-      targetScope.globalScope,
-    );
-    if (rightNode == null) {
-      error = 'Failed to create execution node for right side of member access';
-      return true;
-    }
-
-    // Tick the right node until complete
-    while (!await tickChild(rightNode, targetScope, cancellationToken)) {
-      if (await runtime.check(cancellationToken)) {
-        return true;
+    if (_leftIdentifierNode == null) {
+      if (node.children[0].symbol != Symbols.identifier) {
+        error = 'Left side of member access must be an identifier';
+        return TickResult.completed;
       }
-    }
-
-    return true;
-  }
-
-  static Runtime _resolveMemberAccessToScope(
-    ParseTree memberAccessTree,
-    Runtime runtime,
-  ) {
-    if (memberAccessTree.symbol != Symbols.memberAccess) {
-      throw RuntimeException('Expected member access parse tree');
-    }
-
-    var leftChild = memberAccessTree.children[0];
-    var rightChild = memberAccessTree.children[1];
-
-    if (rightChild.symbol != Symbols.identifier) {
-      throw RuntimeException(
-        'Right side of member access must be an identifier',
+      _leftIdentifierNode = IdentifierExecutionNode(
+        node.children[0],
+        thread: thread,
+        scope: scope,
       );
+      return TickResult.delegated;
     }
 
-    Runtime intermediateScope;
+    var leftIdentifierResult = _leftIdentifierNode!.result;
+    if (leftIdentifierResult is! Scope) {
+      error = 'Left side of member access did not resolve to an scope';
+      return TickResult.completed;
+    }
 
-    if (leftChild.symbol == Symbols.identifier) {
-      // Base case: a.b - get sub-scope of a
-      intermediateScope = runtime.getSubModelScope(leftChild.qualifier!);
-    } else if (leftChild.symbol == Symbols.memberAccess) {
-      // Recursive case: resolve a.b first, then get its sub-scope
-      intermediateScope = _resolveMemberAccessToScope(leftChild, runtime);
-    } else {
-      throw RuntimeException(
-        'Left side of member access must be an identifier or another member access',
+    if (_rightIdentifierNode == null) {
+      if (node.children[1].symbol != Symbols.identifier) {
+        error = 'Right side of member access must be an identifier';
+        return TickResult.completed;
+      }
+
+      _rightIdentifierNode = IdentifierExecutionNode(
+        node.children[1],
+        thread: thread,
+        scope: leftIdentifierResult,
       );
+      return TickResult.delegated;
     }
 
-    // Now get the sub-scope of the right identifier within the intermediate scope
-    return intermediateScope.getSubModelScope(rightChild.qualifier!);
+    result = _rightIdentifierNode!.result;
+    error ??= _rightIdentifierNode!.error;
+    return TickResult.completed;
   }
 }

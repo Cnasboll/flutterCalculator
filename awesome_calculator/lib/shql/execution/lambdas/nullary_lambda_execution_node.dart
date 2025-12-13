@@ -5,17 +5,18 @@ import 'package:awesome_calculator/shql/execution/runtime.dart';
 class NullaryLambdaExecutionNode extends ExecutionNode {
   final dynamic Function() nullaryFunction;
 
-  NullaryLambdaExecutionNode(this.nullaryFunction, {required super.scope});
+  NullaryLambdaExecutionNode(
+    this.nullaryFunction, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    if (await runtime.check(cancellationToken)) {
-      return true;
-    }
     result = await nullaryFunction();
-    return true;
+    return TickResult.completed;
   }
 }

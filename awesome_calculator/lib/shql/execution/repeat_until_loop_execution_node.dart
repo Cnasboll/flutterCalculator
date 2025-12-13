@@ -5,55 +5,75 @@ import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
 class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
-  RepeatUntilLoopExecutionNode(super.node, {required super.scope});
+  RepeatUntilLoopExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
 
-  ExecutionNode? _conditionNode;
   ExecutionNode? _bodyNode;
-  BreakTarget? _breakTarget;
+  ExecutionNode? _conditionNode;
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    _breakTarget ??= runtime.pushBreakTarget();
+    if (_bodyNode == null) {
+      _bodyNode = Engine.createExecutionNode(node.children[0], thread, scope);
+      return TickResult.delegated;
+    }
+
     if (_conditionNode == null) {
-      _bodyNode ??= Engine.createExecutionNode(node.children[0], scope);
-      var bodyEvaluated = await tickChild(
-        _bodyNode!,
-        runtime,
-        cancellationToken,
+      if (_bodyNode!.completed) {
+        result = _bodyNode!.result;
+        error ??= _bodyNode!.error;
+      }
+      _conditionNode = Engine.createExecutionNode(
+        node.children[1],
+        thread,
+        scope,
       );
-      var continued = _breakTarget?.clearContinued() ?? false;
-      var cancelledOrBreak = await runtime.check(cancellationToken);
-      if (cancelledOrBreak) {
-        runtime.popBreakTarget();
-        return true;
-      }
+      return TickResult.delegated;
+    }
 
+    var conditionResult = _conditionNode!.result;
+    if (conditionResult) {
+      _complete(runtime);
+      return TickResult.completed;
+    }
+
+    _propagateResult();
+    return TickResult.iterated;
+  }
+
+  void _propagateResult() {
+    if (_bodyNode != null) {
+      if (_bodyNode!.completed) {
+        result = _bodyNode!.result;
+        error ??= _bodyNode!.error;
+      }
       _bodyNode = null;
-      if (bodyEvaluated || continued) {
-        _conditionNode = Engine.createExecutionNode(node.children[1], scope);
-      } else {
-        return false;
+    } else if (_conditionNode != null) {
+      if (_conditionNode!.completed) {
+        result ??= _conditionNode!.result;
+        error ??= _conditionNode!.error;
       }
     }
+    _conditionNode = null;
+    _bodyNode = null;
+  }
 
-    var conditionEvaluated = await _conditionNode!.tick(
-      runtime,
-      cancellationToken,
-    );
-    var terminated = conditionEvaluated && _conditionNode!.result == true;
-    var continued = _breakTarget?.clearContinued() ?? false;
-    var cancelledOrBreak = await runtime.check(cancellationToken);
-    if (conditionEvaluated || continued || cancelledOrBreak) {
-      _conditionNode = null;
-      if (cancelledOrBreak || terminated) {
-        runtime.popBreakTarget();
-        return true;
-      }
-    }
-    // Keep repeating
-    return false;
+  TickResult _complete(Runtime runtime) {
+    _propagateResult();
+    return TickResult.completed;
+  }
+
+  @override
+  bool get isLoop => true;
+
+  @override
+  void continueLoop() {
+    _propagateResult();
   }
 }

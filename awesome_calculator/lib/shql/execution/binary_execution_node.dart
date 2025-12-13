@@ -1,13 +1,31 @@
+import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/parent_execution_node.dart';
+import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
-abstract class BinaryExecutionNode extends ParentExecutionNode {
+abstract class BinaryExecutionNode extends ExecutionNode {
   BinaryExecutionNode(
-    ExecutionNode lhs,
-    ExecutionNode rhs, {
+    this.lhsTree,
+    this.rhsTree, {
+    required super.thread,
     required super.scope,
-  }) : super([lhs, rhs]);
+  });
 
-  ExecutionNode get lhs => children[0];
-  ExecutionNode get rhs => children[1];
+  ParseTree lhsTree;
+  ParseTree rhsTree;
+
+  ExecutionNode? lhs;
+  ExecutionNode pushLhs() {
+    lhs = Engine.createExecutionNode(lhsTree, thread, scope);
+    return lhs!;
+  }
+
+  dynamic get lhsResult => lhs?.result;
+
+  ExecutionNode? rhs;
+  ExecutionNode pushRhs() {
+    rhs = Engine.createExecutionNode(rhsTree, thread, scope);
+    return rhs!;
+  }
+
+  dynamic get rhsResult => rhs?.result;
 }

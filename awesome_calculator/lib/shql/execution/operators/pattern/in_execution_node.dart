@@ -1,10 +1,15 @@
 import 'package:awesome_calculator/shql/execution/null_aware_binary_node.dart';
 
 class InExecutionNode extends NullAwareBinaryNode {
-  InExecutionNode(super.lhs, super.rhs, {required super.scope});
+  InExecutionNode(
+    super.lhsTree,
+    super.rhsTree, {
+    required super.thread,
+    required super.scope,
+  });
 
   @override
-  Future<bool> evaluate(dynamic lhsResult, dynamic rhsResult) async {
+  bool applyNotNull() {
     if (rhsResult is List || rhsResult is Set) {
       return rhsResult.contains(lhsResult);
     }

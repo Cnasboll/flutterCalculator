@@ -2,149 +2,138 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/assignment_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
+import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/set_variable_execution_node.dart';
+import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class ForLoopExecutionNode extends LazyExecutionNode {
-  ForLoopExecutionNode(super.node, {required super.scope});
+  ForLoopExecutionNode(
+    super.node, {
+    required super.thread,
+    required super.scope,
+  });
 
   AssignmentExecutionNode? _initializationNode;
-  int _variableIdentifier = -1;
-  dynamic _initialIteratorValue;
-  bool _initializationDone = false;
+  IdentifierExecutionNode? _loopVariablenode;
   ExecutionNode? _targetNode;
   ExecutionNode? _stepNode;
   ExecutionNode? _bodyNode;
-  BreakTarget? _breakTarget;
 
   @override
-  Future<bool> doTick(
+  Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    /*if (_breakTarget == null) {
-      if (node.children.length != 4) {
-        error = 'For loop must have initialization, target, step, and body.';
-        return true;
+    if (_initializationNode == null) {
+      var (initializationNode, initError) = _createInitializationNode();
+      if (initError != null) {
+        error = initError;
+        return TickResult.completed;
       }
-
-      var intializationNode = node.children[0];
-      if (intializationNode.symbol != Symbols.assignment) {
-        error = 'For loop initialization must be an assignment.';
-        return true;
-      }
-      var identifierNode = intializationNode.children[0];
-      if (identifierNode.symbol != Symbols.identifier) {
-        error = 'For loop initialization must be an assignment to a variable.';
-        return true;
-      }
-      if (identifierNode.children.isNotEmpty) {
-        error = 'For loop initialization cannot be an indexed assignment.';
-        return true;
-      }
-      _variableIdentifier = identifierNode.qualifier!;
-      _initializationNode = Engine.tryCreateAssignmentExecutionNode(
-        intializationNode,
-        scope,
-      );
-      if (_initializationNode == null) {
-        error = 'Could not create assignment execution node.';
-        return true;
-      }
-      _targetNode = Engine.createExecutionNode(node.children[1], scope);
-      _stepNode = Engine.createExecutionNode(node.children[2], scope);
-      _breakTarget = runtime.pushBreakTarget();
+      _initializationNode = initializationNode;
+      return TickResult.delegated;
     }
-    if (!_initializationDone) {
-      var initEvaluated = await tickChild(
-        _initializationNode!,
-        runtime,
-        cancellationToken,
-      );
-      if (await runtime.check(cancellationToken)) {
-        runtime.popBreakTarget();
-        return true;
-      }
-      if (!initEvaluated) {
-        return false;
-      }
-      _initializationDone = true;
-      _initialIteratorValue = _initializationNode!.result;
-    }
-
-    var (currentIteratorValue, _, __) = runtime.resolveIdentifier(
-      _variableIdentifier,
-    );
 
     if (_bodyNode == null) {
-      if (_stepNode == null) {
-        _targetNode ??= Engine.createExecutionNode(node.children[1], scope);
-        var targetEvaluated = await tickChild(
-          _targetNode!,
-          runtime,
-          cancellationToken,
-        );
+      result ??= _initializationNode!.result;
+      error ??= _initializationNode!.error;
+      _bodyNode = Engine.createExecutionNode(bodyParseTree, thread, scope);
+      return TickResult.delegated;
+    }
 
-        var continued = _breakTarget?.clearContinued() ?? false;
-        if (await runtime.check(cancellationToken)) {
-          runtime.popBreakTarget();
-          return true;
-        }
-        if (!targetEvaluated && !continued) {
-          return false;
-        }
-        if (!continued) {
-          var targetValue = _targetNode!.result;
-          bool iteratingForward = targetValue >= _initialIteratorValue;
-          bool conditionMet = iteratingForward
-              ? currentIteratorValue >= targetValue
-              : currentIteratorValue <= targetValue;
-          if (conditionMet) {
-            runtime.popBreakTarget();
-            return true;
-          }
-          // We reset the target node in every iteration to allow re-evaluation
-          _targetNode = null;
-        }
-      }
-      _stepNode ??= Engine.createExecutionNode(node.children[2], scope);
-      var stepEvaluated = await tickChild(
-        _stepNode!,
-        runtime,
-        cancellationToken,
+    if (_targetNode == null) {
+      result = _bodyNode!.result;
+      error ??= _bodyNode!.error;
+      _targetNode = Engine.createExecutionNode(targetParseTree, thread, scope);
+      return TickResult.delegated;
+    }
+
+    if (_loopVariablenode == null) {
+      _loopVariablenode = IdentifierExecutionNode(
+        identifierParseTree,
+        thread: thread,
+        scope: scope,
       );
-      var continued = _breakTarget?.clearContinued() ?? false;
-      if (await runtime.check(cancellationToken)) {
-        runtime.popBreakTarget();
-        return true;
-      }
-      if (!stepEvaluated && !continued) {
-        return false;
-      }
+      return TickResult.delegated;
+    }
 
-      if (!continued) {
-        var stepValue = _stepNode!.result;
-        runtime.setVariable(
-          _variableIdentifier,
-          currentIteratorValue + stepValue,
-        );
-        // We reset the step node in every iteration to allow re-evaluation
-        _stepNode = null;
-      }
+    var initialIteratorValue = _initializationNode!.result;
+    var currentIteratorValue = _loopVariablenode!.result;
+    var targetValue = _targetNode!.result;
+
+    bool iteratingForward = targetValue >= initialIteratorValue;
+    bool reachedTarget = iteratingForward
+        ? currentIteratorValue >= targetValue
+        : currentIteratorValue <= targetValue;
+    if (reachedTarget) {
+      return _complete(runtime);
     }
-    _bodyNode ??= Engine.createExecutionNode(node.children[3], scope);
-    var bodyEvaluated = await tickChild(_bodyNode!, runtime, cancellationToken);
-    var continued = _breakTarget?.clearContinued() ?? false;
-    if (await runtime.check(cancellationToken)) {
-      runtime.popBreakTarget();
-      return true;
+
+    if (_stepNode == null && hasStepNode) {
+      _stepNode = Engine.createExecutionNode(stepParseTree, thread, scope);
+      return TickResult.delegated;
     }
-    if (!bodyEvaluated && !continued) {
-      return false;
-    }
-    _bodyNode = null;*/
-    error = "Not implemented: For loops.";
-    return true;
+
+    var increment = _stepNode != null
+        ? _stepNode!.result
+        : (iteratingForward ? 1 : -1);
+
+    SetVariableExecutionNode(
+      identifierParseTree,
+      currentIteratorValue + increment,
+      thread: thread,
+      scope: scope,
+    );
+    // Here we actually don't return TickResult.delegated nor store the SetVariableExecutionNode,
+    // because we want to set the variable immediately
+    // and restart the loop
+
+    _reset();
+    return TickResult.iterated;
   }
+
+  void _reset() {
+    _loopVariablenode = null;
+    _targetNode = null;
+    _bodyNode = null;
+    _stepNode = null;
+  }
+
+  TickResult _complete(Runtime runtime) {
+    return TickResult.completed;
+  }
+
+  (AssignmentExecutionNode?, String?) _createInitializationNode() {
+    if (initializationParseTree.symbol != Symbols.assignment) {
+      return (null, 'For loop initialization must be an assignment.');
+    }
+
+    var initializationNode = Engine.tryCreateAssignmentExecutionNode(
+      initializationParseTree,
+      thread,
+      scope,
+    );
+    if (initializationNode == null) {
+      return (null, 'Could not create assignment execution node.');
+    }
+    return (initializationNode, null);
+  }
+
+  @override
+  bool get isLoop => true;
+
+  @override
+  void continueLoop() {
+    _reset();
+  }
+
+  ParseTree get initializationParseTree => node.children[0];
+  ParseTree get identifierParseTree => node.children[0].children[0];
+  ParseTree get bodyParseTree => node.children[1];
+  ParseTree get targetParseTree => node.children[2];
+  bool get hasStepNode => node.children.length > 3;
+  ParseTree get stepParseTree => node.children[3];
 }

@@ -1,42 +1,70 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
+enum TickResult { completed, iterated, delegated }
+
 abstract class ExecutionNode {
+  final Thread thread;
   final Scope scope;
+  BreakTarget? breakTarget;
+  ReturnTarget? returnTarget;
 
-  ExecutionNode({required this.scope});
-
-  // Tick a child node and update result and error accordingly.
-  // The result for a parent is always the same as the last ticked child's result which propagates up the tree.
-  Future<bool> tickChild(
-    ExecutionNode child,
-    Runtime runtime,
-    CancellationToken? cancellationToken,
-  ) async {
-    if (await child.tick(runtime, cancellationToken)) {
-      result = child.result;
-      error = child.error;
-      return true;
-    }
-    return false;
+  ExecutionNode({required this.thread, required this.scope}) {
+    thread.pushNode(this);
   }
 
-  Future<bool> tick(
+  Future<TickResult> tick(
     Runtime runtime, [
     CancellationToken? cancellationToken,
   ]) async {
-    if (completed) {
-      return true;
+    if (isLoop) {
+      breakTarget ??= thread.pushBreakTarget();
     }
-    completed = await doTick(runtime, cancellationToken);
-    return completed;
+
+    try {
+      if (completed) {}
+      if (await thread.check(cancellationToken)) {
+        result = thread.result;
+        error = thread.error;
+        if (isLoop &&
+            !await (breakTarget?.check(cancellationToken) ?? false) &&
+            (breakTarget?.clearContinued() ?? false)) {
+          continueLoop();
+          return TickResult.iterated;
+        }
+        completed = true;
+        thread.popNode();
+        return TickResult.completed;
+      }
+      var tickResult = await doTick(runtime, cancellationToken);
+      if (tickResult == TickResult.completed) {
+        completed = true;
+        thread.onExecutionNodeComplete(this);
+      }
+      return tickResult;
+    } finally {
+      if (completed) {
+        if (isLoop) {
+          thread.popBreakTarget();
+        }
+        if (returnTarget != null) {
+          thread.popReturnTarget();
+        }
+      }
+    }
   }
 
-  Future<bool> doTick(Runtime runtime, CancellationToken? cancellationToken);
+  Future<TickResult> doTick(
+    Runtime runtime,
+    CancellationToken? cancellationToken,
+  );
   bool completed = false;
   String? error;
   dynamic result;
   dynamic getResult() {
     return result;
   }
+
+  bool get isLoop => false;
+  void continueLoop() {}
 }
