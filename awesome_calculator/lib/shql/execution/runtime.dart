@@ -623,7 +623,7 @@ class Runtime {
     setUnaryFunction("PRINT", print);
     setUnaryFunction("PROMPT", prompt);
     setNullaryFunction("READLINE", readLine);
-    setBinaryFunction("PLOT", plot);
+    setBinaryFunction("_DISPLAY_GRAPH", plot);
     setNullaryFunction("CLS", cls);
     setBinaryFunction("_EXTERN", extern);
   }

@@ -1,5 +1,4 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
-import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/index_to_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/binary_lambda_execution_node.dart';

@@ -22,3 +22,17 @@ MAX(a,b) := _EXTERN("MAX", [a,b]);
 ATAN2(a,b) := _EXTERN("ATAN2", [a,b]);
 POW(a,b) := _EXTERN("POW", [a,b]);
 DIM(a,b) := _EXTERN("DIM", [a,b]);
+
+
+-- Plot a function
+PLOT(f, x1, x2) := BEGIN
+    x_vector := [];
+    y_vector := [];
+    FOR x := x1 to X2 DO BEGIN
+        x_vector := x_vector + [x];
+        y_vector := y_vector + [f(x)];
+    END;
+    _DISPLAY_GRAPH(x_vector, y_vector);
+    PRINT("Type CLS to hide graph again");
+END;
+
