@@ -241,9 +241,8 @@ class _DevicePanelState extends State<DevicePanel>
       'j',
       'k',
       'l',
-
-      ':'
-          '\'',
+      ':',
+      '\'',
       '"',
       '\\',
       '@',
