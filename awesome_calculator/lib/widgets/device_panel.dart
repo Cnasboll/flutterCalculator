@@ -101,11 +101,10 @@ class _DevicePanelState extends State<DevicePanel>
           }
         }
 
-        setState(() {
-          _terminalText =
-              _terminalText.substring(0, _inputStartPosition) + contents;
-          _cursorPosition = _terminalText.length;
-        });
+        await execute(
+          contents,
+          "Finished executing ${result.files.single.name}.",
+        );
       }
     } catch (e) {
       terminalPrint('LOAD ERROR: $e');
@@ -125,14 +124,18 @@ class _DevicePanelState extends State<DevicePanel>
   Future<void> loadStandardLibrary() async {
     final stdlibCode = await rootBundle.loadString('assets/shql/stdlib.shql');
     terminalPrint("Loading standard library...");
-    terminalPrint(stdlibCode);
+    execute(stdlibCode, "Standard library loaded.");
+  }
+
+  Future<void> execute(String code, String complete) async {
+    terminalPrint(code);
     await Engine.execute(
-      stdlibCode,
+      code,
       runtime: runtime,
       constantsSet: constantsSet,
       cancellationToken: _cancellationToken,
     );
-    terminalPrint("Standard library loaded.");
+    terminalPrint(complete);
     _printStartupBanner();
   }
 
@@ -147,6 +150,10 @@ class _DevicePanelState extends State<DevicePanel>
       runtime.printFunction = (p1) => terminalPrint(p1.toString());
 
       runtime.clsFunction = () async {
+        _printStartupBanner();
+      };
+
+      runtime.hideGraphFunction = () async {
         setState(() {
           _plotPoints.clear();
         });

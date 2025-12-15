@@ -362,6 +362,7 @@ class Runtime {
   Future<String> Function()? readlineFunction;
   Future<String> Function(String prompt)? promptFunction;
   Future<void> Function()? clsFunction;
+  Future<void> Function()? hideGraphFunction; 
   Future<void> Function(dynamic, dynamic)? plotFunction;
 
   Runtime({
@@ -392,6 +393,7 @@ class Runtime {
     readlineFunction = other.readlineFunction;
     promptFunction = other.promptFunction;
     clsFunction = other.clsFunction;
+    hideGraphFunction = other.hideGraphFunction;
     plotFunction = other.plotFunction;
     hookUpConsole();
     _sandboxed = true;
@@ -599,6 +601,14 @@ class Runtime {
     await clsFunction?.call();
   }
 
+  Future<void> hideGraph() async {
+    if (readonly) {
+      return;
+    }
+
+    await hideGraphFunction?.call();
+  }
+
   extern(name, args) {
     /*var nullaryFunction  = nullaryFunctions[name];
     if (nullaryFunction != null) {
@@ -625,6 +635,7 @@ class Runtime {
     setNullaryFunction("READLINE", readLine);
     setBinaryFunction("_DISPLAY_GRAPH", plot);
     setNullaryFunction("CLS", cls);
+    setNullaryFunction("HIDE_GRAPH", hideGraph);
     setBinaryFunction("_EXTERN", extern);
   }
 

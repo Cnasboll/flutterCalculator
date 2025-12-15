@@ -42,6 +42,11 @@ abstract class ExecutionNode {
         thread.onExecutionNodeComplete(this);
       }
       return tickResult;
+    } catch (e) {
+      error = e.toString();
+      completed = true;
+      thread.onExecutionNodeComplete(this);
+      return TickResult.completed;
     } finally {
       if (completed) {
         if (isLoop) {

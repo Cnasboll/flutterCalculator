@@ -35,6 +35,6 @@ PLOT(f, x1, x2) := BEGIN
         y_vector := y_vector + [f(x)];
     END;
     _DISPLAY_GRAPH(x_vector, y_vector);
-    PRINT("Type CLS to hide graph again");
+    PRINT("Type HIDE_GRAPH to hide graph again");
 END;
 
