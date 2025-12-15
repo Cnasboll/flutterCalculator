@@ -514,7 +514,7 @@ void main() {
       (await Engine.execute(
         "sum := 0; FOR i := 1 TO 10 STEP 2 DO sum := sum + i; sum",
       )),
-      36,
+      25,
     );
   });
 
