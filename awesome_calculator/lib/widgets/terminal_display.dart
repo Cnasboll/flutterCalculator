@@ -3,10 +3,6 @@ import 'package:awesome_calculator/widgets/graph_display.dart';
 import 'package:awesome_calculator/widgets/screen_crack.dart';
 import 'package:flutter/material.dart';
 
-/// A retro CRT-style terminal display with green phosphor glow.
-///
-/// Displays text with a blinking cursor at the specified position.
-/// Supports click-to-position cursor placement.
 class TerminalDisplay extends StatelessWidget {
   final String terminalText;
   final int cursorPosition;

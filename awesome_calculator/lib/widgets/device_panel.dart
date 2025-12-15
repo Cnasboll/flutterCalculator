@@ -5,7 +5,7 @@ import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/widgets/post_it_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'steampunk_keyboard.dart';
+import 'keyboard.dart';
 import 'cash_register_display.dart';
 import 'terminal_display.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
@@ -869,7 +869,7 @@ class _DevicePanelState extends State<DevicePanel>
                   ),
 
                   // Keyboard
-                  SteampunkKeyboard(
+                  Keyboard(
                     keyboardLayout: _keyboardLayout,
                     shiftMap: _shiftMap,
                     pressedKey: _pressedKey,

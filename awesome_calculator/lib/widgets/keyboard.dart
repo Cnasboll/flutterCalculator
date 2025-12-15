@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'key_button.dart';
 
-/// A steampunk-styled keyboard widget that renders a grid of mechanical keys.
-///
-/// Handles keyboard layout rendering and delegates key press events to a callback.
-/// Automatically applies shift state to all keys and manages visual feedback.
-class SteampunkKeyboard extends StatelessWidget {
+class Keyboard extends StatelessWidget {
   final List<List<String>> keyboardLayout;
   final Map<String, String> shiftMap;
   final String? pressedKey;
@@ -15,7 +11,7 @@ class SteampunkKeyboard extends StatelessWidget {
   final void Function(String) onKeyPress;
   final bool isExecuting;
 
-  const SteampunkKeyboard({
+  const Keyboard({
     super.key,
     required this.keyboardLayout,
     required this.shiftMap,

@@ -51,7 +51,12 @@ class UserFunctionExecutionNode extends ExecutionNode {
           childScope.members.setVariable(argumentIdentifiers[i], argument);
         }
       }
-      returnTarget = thread.pushReturnTarget();
+      var (r, error) = thread.pushReturnTarget();
+      if (error != null) {
+        this.error = error;
+        return TickResult.completed;
+      }
+      returnTarget = r;
       body = Engine.createExecutionNode(userFunction.body, thread, childScope);
       return TickResult.delegated;
     }

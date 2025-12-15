@@ -150,10 +150,16 @@ class Thread {
     _breakTargets.clear();
   }
 
-  ReturnTarget pushReturnTarget() {
+  (ReturnTarget?, String?) pushReturnTarget() {
+    if (_returnTargets.length >= 10) {
+      return (
+        null,
+        'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
+      );
+    }
     var returnTarget = ReturnTarget();
     _returnTargets.add(returnTarget);
-    return returnTarget;
+    return (returnTarget, null);
   }
 
   void popReturnTarget() {
@@ -410,17 +416,6 @@ class Runtime {
     return _identifiers;
   }
 
-  /*(bool, String?) pushScope() {
-    if (_scopeStack.length >= 100) {
-      return (
-        false,
-        'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
-      );
-    }
-    _scopeStack.add(Scope());
-    return (true, null);
-  }*/
-
   Runtime sandbox() {
     final child = Runtime._sandbox(this);
     return child;
@@ -432,39 +427,6 @@ class Runtime {
     return scope;
   }
 
-  /* (dynamic, int?) getVariable(int identifier) {
-    for (var i = _scopeStack.length - 1; i >= 0; i--) {
-      final scope = _scopeStack[i];
-      if (scope.variables.containsKey(identifier)) {
-        return (scope.variables[identifier], i);
-      }
-    }
-    return (null, null);
-  }
-
-  void setVariable(int identifier, dynamic value) {
-    if (readonly) {
-      return;
-    }
-
-    // Try to find the variable in existing scopes to update it.
-    for (final scope in _scopeStack.reversed) {
-      if (scope.variables.containsKey(identifier)) {
-        scope.variables[identifier] = value;
-        return;
-      }
-    }
-
-    // If not found, create it in the current scope.
-    assignVariable(identifier, value);
-  }
-
-  void assignVariable(int identifier, dynamic value, [bool sandbox = false]) {
-    if (readonly && !sandbox) {
-      return;
-    }
-    _scopeStack.last.variables[identifier] = value;
-  }*/
 
   bool hasNullaryFunction(String name) {
     return _nullaryFunctions.containsKey(name);
