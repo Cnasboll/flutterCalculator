@@ -65,12 +65,6 @@ class ForLoopExecutionNode extends LazyExecutionNode {
     var targetValue = _targetNode!.result;
 
     bool iteratingForward = targetValue >= initialIteratorValue;
-    bool reachedTarget = iteratingForward
-        ? currentIteratorValue >= targetValue
-        : currentIteratorValue <= targetValue;
-    if (reachedTarget) {
-      return _complete(runtime);
-    }
 
     if (_stepNode == null && hasStepNode) {
       _stepNode = Engine.createExecutionNode(stepParseTree, thread, scope);
@@ -81,12 +75,22 @@ class ForLoopExecutionNode extends LazyExecutionNode {
         ? _stepNode!.result
         : (iteratingForward ? 1 : -1);
 
+    var newIteratorValue = currentIteratorValue + increment;
+
+    bool passingTarget = iteratingForward
+        ? newIteratorValue > targetValue
+        : newIteratorValue < targetValue;
+    if (passingTarget) {
+      return _complete(runtime);
+    }
+
     SetVariableExecutionNode(
       identifierParseTree,
-      currentIteratorValue + increment,
+      newIteratorValue,
       thread: thread,
       scope: scope,
     );
+
     // Here we actually don't return TickResult.delegated nor store the SetVariableExecutionNode,
     // because we want to set the variable immediately
     // and restart the loop

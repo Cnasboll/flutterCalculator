@@ -528,11 +528,6 @@ void main() {
   });
 
   test("Can assign to list variable", () async {
-    expect(
-      (await Engine.execute(
-        "x := [1,2,3];x[0]",
-      )),
-      1,
-    );
+    expect((await Engine.execute("x := [1,2,3];x[0]")), 1);
   });
 }

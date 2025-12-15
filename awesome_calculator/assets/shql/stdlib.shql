@@ -28,7 +28,9 @@ DIM(a,b) := _EXTERN("DIM", [a,b]);
 PLOT(f, x1, x2) := BEGIN
     x_vector := [];
     y_vector := [];
-    FOR x := x1 to X2 DO BEGIN
+    range := DOUBLE(x2)-DOUBLE(x1)
+    step := MAX(0.1, range / 100.0);
+    FOR x := DOUBLE(x1) to X2 STEP step DO BEGIN
         x_vector := x_vector + [x];
         y_vector := y_vector + [f(x)];
     END;
