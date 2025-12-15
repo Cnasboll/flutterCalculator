@@ -147,7 +147,7 @@ class _KeyButtonState extends State<KeyButton>
             blurRadius: 4,
           ),
           BoxShadow(
-            color: const Color(0xFFCD7F32).withOpacity(0.3),
+            color: const Color(0xFFCD7F32).withAlpha(77),
             offset: const Offset(-1, -1),
             blurRadius: 2,
           ),

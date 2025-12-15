@@ -362,7 +362,7 @@ class Runtime {
   Future<String> Function()? readlineFunction;
   Future<String> Function(String prompt)? promptFunction;
   Future<void> Function()? clsFunction;
-  Future<void> Function()? hideGraphFunction; 
+  Future<void> Function()? hideGraphFunction;
   Future<void> Function(dynamic, dynamic)? plotFunction;
 
   Runtime({

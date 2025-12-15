@@ -23,12 +23,12 @@ class GraphPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.green.withOpacity(0.3)
+      ..color = Colors.green.withAlpha(77)
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
     final axisPaint = Paint()
-      ..color = Colors.green.withOpacity(0.6)
+      ..color = Colors.green.withAlpha(153)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -39,7 +39,7 @@ class GraphPainter extends CustomPainter {
       ..shader = ui.Gradient.linear(
         const Offset(0, 0),
         Offset(size.width, size.height),
-        [Colors.limeAccent.withOpacity(0.9), Colors.green.withOpacity(0.9)],
+        [Colors.limeAccent.withAlpha(230), Colors.green.withAlpha(230)],
       );
 
     // Draw grid
@@ -106,7 +106,7 @@ class GraphPainter extends CustomPainter {
     if (range == 0) return;
 
     final textStyle = TextStyle(
-      color: Colors.green.withOpacity(0.8),
+      color: Colors.green.withAlpha(204),
       fontSize: 10,
     );
 
