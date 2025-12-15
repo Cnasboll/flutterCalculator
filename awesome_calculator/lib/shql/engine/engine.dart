@@ -114,6 +114,7 @@ class Engine {
       return executionNode.result;
     } finally {
       // Clean up any temporary state if needed in the future
+      runtime.mainThread.executionStack.clear();
       runtime.mainThread.clearBreakTargets();
       runtime.mainThread.clearReturnTargets();
     }
@@ -144,6 +145,7 @@ class Engine {
       return (executionNode.result, true);
     } finally {
       // Clean up any temporary state if needed in the future
+      runtime.mainThread.executionStack.clear();
       runtime.mainThread.clearBreakTargets();
       runtime.mainThread.clearReturnTargets();
     }

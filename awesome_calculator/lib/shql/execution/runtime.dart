@@ -209,7 +209,6 @@ class Thread {
       if (tickResult == TickResult.iterated) {
         return false;
       }
-      await Future.delayed(const Duration(milliseconds: 1));
     }
     return true;
   }
@@ -426,7 +425,6 @@ class Runtime {
     scope ??= _subModelScopes[identifier] = Runtime._subModel(this);
     return scope;
   }
-
 
   bool hasNullaryFunction(String name) {
     return _nullaryFunctions.containsKey(name);
