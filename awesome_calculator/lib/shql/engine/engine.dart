@@ -107,16 +107,14 @@ class Engine {
         await Future.delayed(const Duration(milliseconds: 1));
       }
 
-      if (executionNode.error != null) {
-        throw RuntimeException(executionNode.error!);
+      if (runtime.mainThread.error != null) {
+        throw RuntimeException(runtime.mainThread.error!);
       }
 
-      return executionNode.result;
+      return runtime.mainThread.result;
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.mainThread.executionStack.clear();
-      runtime.mainThread.clearBreakTargets();
-      runtime.mainThread.clearReturnTargets();
+      runtime.mainThread.reset();
     }
   }
 
@@ -138,16 +136,14 @@ class Engine {
         return (null, false);
       }
 
-      if (executionNode.error != null) {
-        throw RuntimeException(executionNode.error!);
+      if (runtime.mainThread.error != null) {
+        throw RuntimeException(runtime.mainThread.error!);
       }
 
-      return (executionNode.result, true);
+      return (runtime.mainThread.result, true);
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.mainThread.executionStack.clear();
-      runtime.mainThread.clearBreakTargets();
-      runtime.mainThread.clearReturnTargets();
+      runtime.mainThread.reset();
     }
   }
 
