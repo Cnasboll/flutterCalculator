@@ -114,6 +114,18 @@ class Thread {
     executionStack.add(executionNode);
   }
 
+  void reset() {
+    error = null;
+    result = null;
+    clearExecutionStack();
+    clearBreakTargets();
+    clearReturnTargets();
+  }
+
+  void clearExecutionStack() {
+    executionStack.clear();
+  }
+
   BreakTarget pushBreakTarget() {
     var breakTarget = BreakTarget();
     _breakTargets.add(breakTarget);
