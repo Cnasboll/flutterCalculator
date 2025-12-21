@@ -117,7 +117,7 @@ class _DevicePanelState extends State<DevicePanel>
       // Clear terminal and print banner
       _terminalText = '';
       _cursorPosition = _inputStartPosition = 0;
-      terminalPrint('SHQL v 3.0');
+      terminalPrint('SHQL v 4.0');
       showPrompt();
     });
   }
