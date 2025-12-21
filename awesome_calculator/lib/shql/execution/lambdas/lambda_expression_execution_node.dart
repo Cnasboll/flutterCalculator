@@ -21,10 +21,43 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
     completed = true;
   }
 
-  LambdaExpressionExecutionNode.alias(
+  LambdaExpressionExecutionNode.fromUserFunction(
     this.name,
     super.node,
     UserFunction result, {
+    required super.thread,
+    required super.scope,
+  }) {
+    this.result = result;
+    completed = true;
+  }
+
+  LambdaExpressionExecutionNode.fromNullaryFunction(
+    this.name,
+    super.node,
+    NullaryFunction result, {
+    required super.thread,
+    required super.scope,
+  }) {
+    this.result = result;
+    completed = true;
+  }
+
+  LambdaExpressionExecutionNode.fromUnaryFunction(
+    this.name,
+    super.node,
+    UnaryFunction result, {
+    required super.thread,
+    required super.scope,
+  }) {
+    this.result = result;
+    completed = true;
+  }
+
+  LambdaExpressionExecutionNode.fromBinaryFunction(
+    this.name,
+    super.node,
+    BinaryFunction result, {
     required super.thread,
     required super.scope,
   }) {
@@ -61,6 +94,7 @@ class LambdaExpressionExecutionNode extends LazyExecutionNode {
     }
 
     var userFunction = UserFunction(
+      identifier: null,
       name: name,
       argumentIdentifiers: argumentIdentifiers,
       scope: scope,

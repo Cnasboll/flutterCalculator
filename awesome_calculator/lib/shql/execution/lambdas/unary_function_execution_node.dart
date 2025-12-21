@@ -2,27 +2,23 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
-class IndexToExecutionNode extends ExecutionNode {
-  IndexToExecutionNode(
-    this.indexable,
-    this.index, {
+class UnaryFunctionExecutionNode extends ExecutionNode {
+  final UnaryFunction unaryFunction;
+  final dynamic argument;
+
+  UnaryFunctionExecutionNode(
+    this.unaryFunction,
+    this.argument, {
     required super.thread,
     required super.scope,
   });
-
-  dynamic indexable;
-  dynamic index;
 
   @override
   Future<TickResult> doTick(
     Runtime runtime,
     CancellationToken? cancellationToken,
-  ) {
-    result = indexable[index];
-    return Future.value(TickResult.completed);
-  }
-
-  void assign(dynamic value) {
-    indexable[index] = value;
+  ) async {
+    result = await unaryFunction.function(this, argument);
+    return TickResult.completed;
   }
 }

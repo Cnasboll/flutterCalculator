@@ -2,6 +2,7 @@ import 'dart:core';
 
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/apriori_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/call_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/artithmetic/addition_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/artithmetic/division_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/artithmetic/modulus_execution_node.dart';
@@ -103,7 +104,7 @@ class Engine {
       }
 
       while ((cancellationToken == null || !await cancellationToken.check()) &&
-          !await runtime.mainThread.tick(runtime, cancellationToken)) {
+          !await runtime.tick(runtime, cancellationToken)) {
         await Future.delayed(const Duration(milliseconds: 1));
       }
 
@@ -114,7 +115,7 @@ class Engine {
       return runtime.mainThread.result;
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.mainThread.reset();
+      runtime.reset();
     }
   }
 
@@ -132,7 +133,7 @@ class Engine {
         throw RuntimeException('Failed to create execution node.');
       }
 
-      if (!await runtime.mainThread.tick(runtime)) {
+      if (!await runtime.tick(runtime)) {
         return (null, false);
       }
 
@@ -143,7 +144,7 @@ class Engine {
       return (runtime.mainThread.result, true);
     } finally {
       // Clean up any temporary state if needed in the future
-      runtime.mainThread.reset();
+      runtime.reset();
     }
   }
 
@@ -241,6 +242,11 @@ class Engine {
 
     if (parseTree.symbol == Symbols.memberAccess) {
       return MemberAccessExecutionNode(parseTree, thread: thread, scope: scope);
+    }
+    executionNode = tryCreateCallExecutionNode(parseTree, thread, scope);
+
+    if (executionNode != null) {
+      return executionNode;
     }
 
     executionNode = tryCreateLambdaExpressionExecutionNode(
@@ -504,6 +510,17 @@ class Engine {
       thread: thread,
       scope: scope,
     );
+  }
+
+  static CallExecutionNode? tryCreateCallExecutionNode(
+    ParseTree parseTree,
+    Thread thread,
+    Scope scope,
+  ) {
+    if (parseTree.symbol != Symbols.call) {
+      return null;
+    }
+    return CallExecutionNode(parseTree, thread: thread, scope: scope);
   }
 
   static LambdaExpressionExecutionNode? tryCreateLambdaExpressionExecutionNode(

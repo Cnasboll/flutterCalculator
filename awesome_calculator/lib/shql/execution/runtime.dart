@@ -2,21 +2,59 @@ import 'dart:math';
 
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/user_function_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
+class Callable {
+  final String name;
+  final int? identifier;
+
+  Callable({required this.name, required this.identifier});
+}
+
 /// Represents a user-defined function with its arguments and body.
-class UserFunction {
-  final String? name;
+class UserFunction extends Callable {
   final List<int> argumentIdentifiers;
   final Scope scope;
   final ParseTree body;
 
   UserFunction({
-    this.name,
+    required super.name,
+    required super.identifier,
     required this.argumentIdentifiers,
     required this.scope,
     required this.body,
+  });
+}
+
+class NullaryFunction extends Callable {
+  final Function(ExecutionNode caller) function;
+
+  NullaryFunction({
+    required super.name,
+    required super.identifier,
+    required this.function,
+  });
+}
+
+class UnaryFunction extends Callable {
+  final Function(ExecutionNode caller, dynamic p1) function;
+
+  UnaryFunction({
+    required super.name,
+    required super.identifier,
+    required this.function,
+  });
+}
+
+class BinaryFunction extends Callable {
+  final Function(ExecutionNode caller, dynamic p1, dynamic p2) function;
+
+  BinaryFunction({
+    required super.name,
+    required super.identifier,
+    required this.function,
   });
 }
 
@@ -213,6 +251,16 @@ class Thread {
     CancellationToken? cancellationToken,
   ]) async {
     while ((cancellationToken == null || !await cancellationToken.check())) {
+      if (_joinTarget != null) {
+        if (_joinTarget!.isRunning) {
+          // Joined thread still running
+          return false;
+        }
+        // Joined thread has completed
+        _joinTarget = null;
+        return true;
+      }
+
       var currentNode = executionStack.isNotEmpty ? executionStack.last : null;
       if (currentNode == null) {
         return true;
@@ -225,11 +273,17 @@ class Thread {
     return true;
   }
 
+  void join(Thread joinTarget) {
+    _joinTarget = joinTarget;
+  }
+
   String? error;
   dynamic result;
   dynamic getResult() {
     return result;
   }
+
+  Thread? _joinTarget;
 }
 
 class Object {
@@ -367,10 +421,14 @@ class Scope {
 
 class Runtime {
   late final ConstantsTable<String> _identifiers;
-  final Map<String, Function()> _nullaryFunctions = {};
-  late final Map<int, Function(dynamic p1)> _unaryFunctions;
-  late final Map<int, Function(dynamic p1, dynamic p2)> _binaryFunctions;
+  final Map<String, Function(ExecutionNode caller)> _nullaryFunctions = {};
+  late final Map<int, Function(ExecutionNode caller, dynamic p1)>
+  _unaryFunctions;
+  late final Map<int, Function(ExecutionNode caller, dynamic p1, dynamic p2)>
+  _binaryFunctions;
   late final Thread mainThread;
+  late final Map<int, Thread> threads;
+  int nextThreadId = 1;
   late final Scope globalScope;
   final Map<int, Runtime> _subModelScopes = {};
   bool _sandboxed = false;
@@ -391,6 +449,7 @@ class Runtime {
     _unaryFunctions = Map.from(unaryFunctions);
     _binaryFunctions = Map.from(binaryFunctions);
     mainThread = Thread(id: 0);
+    threads = {0: mainThread};
     globalScope = Scope(
       Object(),
       constants: constantsSet?.constants ?? ConstantsTable(),
@@ -404,6 +463,7 @@ class Runtime {
     _unaryFunctions = Map.from(other._unaryFunctions);
     _binaryFunctions = Map.from(other._binaryFunctions);
     mainThread = Thread(id: 0);
+    threads = {0: mainThread};
     globalScope = other.globalScope.clone();
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
@@ -418,6 +478,8 @@ class Runtime {
 
   Runtime._subModel(Runtime parent) {
     mainThread = parent.mainThread;
+    nextThreadId = parent.nextThreadId;
+    threads = parent.threads;
     globalScope = Scope(Object(), constants: parent.globalScope.constants);
     _identifiers = parent._identifiers;
     // Sub-models have their own global scope
@@ -438,15 +500,49 @@ class Runtime {
     return scope;
   }
 
+  Future<bool> tick(
+    Runtime runtime, [
+    CancellationToken? cancellationToken,
+  ]) async {
+    // Never remove main thread even if "idle"
+    threads.removeWhere((key, thread) => key > 0 && thread.isIdle);
+    var allTreads = threads.values.toList();
+    for (var thread in allTreads) {
+      if (thread.isIdle) {
+        continue;
+      }
+      if (cancellationToken != null && await cancellationToken.check()) {
+        return true;
+      }
+
+      if (await thread.tick(runtime, cancellationToken)) {
+        if (cancellationToken != null && await cancellationToken.check()) {
+          return true;
+        }
+        continue;
+      }
+    }
+    return threads.values.every((thread) => thread.isIdle);
+  }
+
+  void reset() {
+    for (var thread in threads.values) {
+      thread.reset();
+    }
+  }
+
   bool hasNullaryFunction(String name) {
     return _nullaryFunctions.containsKey(name);
   }
 
-  Function()? getNullaryFunction(String name) {
+  Function(ExecutionNode caller)? getNullaryFunction(String name) {
     return _nullaryFunctions[name];
   }
 
-  void setNullaryFunction(String name, dynamic Function() nullaryFunction) {
+  void setNullaryFunction(
+    String name,
+    dynamic Function(ExecutionNode caller) nullaryFunction,
+  ) {
     _nullaryFunctions[name] = nullaryFunction;
   }
 
@@ -454,18 +550,20 @@ class Runtime {
     return _unaryFunctions.containsKey(identifier);
   }
 
-  Function(dynamic p1)? getUnaryFunction(int identifier) {
+  Function(ExecutionNode caller, dynamic p1)? getUnaryFunction(int identifier) {
     return _unaryFunctions[identifier];
   }
 
   void setUnaryFunction(
     String name,
-    dynamic Function(dynamic p1) unaryFunction,
+    dynamic Function(ExecutionNode caller, dynamic p1) unaryFunction,
   ) {
     _unaryFunctions[identifiers.include(name)] = unaryFunction;
   }
 
-  Function(dynamic p1, dynamic p2)? getBinaryFunction(int identifier) {
+  Function(ExecutionNode caller, dynamic p1, dynamic p2)? getBinaryFunction(
+    int identifier,
+  ) {
     return _binaryFunctions[identifier];
   }
 
@@ -475,121 +573,89 @@ class Runtime {
 
   void setBinaryFunction(
     String name,
-    dynamic Function(dynamic p1, dynamic p2) binaryFunction,
+    dynamic Function(ExecutionNode caller, dynamic p1, dynamic p2)
+    binaryFunction,
   ) {
     _binaryFunctions[identifiers.include(name)] = binaryFunction;
   }
 
-  /*bool hasVariable(int identifier) {
-    for (final scope in _scopeStack.reversed) {
-      if (scope.variables.containsKey(identifier)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  (UserFunction?, int?) getUserFunction(int identifier) {
-    for (var i = _scopeStack.length - 1; i >= 0; i--) {
-      final scope = _scopeStack[i];
-      if (scope.userFunctions.containsKey(identifier)) {
-        return (scope.userFunctions[identifier], i);
-      }
-    }
-    return (null, null);
-  }
-
-  void setUserFunction(int identifier, UserFunction function) {
-    if (readonly) {
-      return;
-    }
-    // Always set in current scope. This allows shadowing.
-    _scopeStack.last.userFunctions[identifier] = function;
-  }
-
-  bool hasUserFunction(int identifier) {
-    for (final scope in _scopeStack.reversed) {
-      if (scope.userFunctions.containsKey(identifier)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /// Resolves an identifier to its value, checking variables first (current scope, then parents),
-  /// then constants (current scope, then parents). Returns (value, found, scopeIndex) tuple.
-  (dynamic, bool, int?) resolveIdentifier(int identifier) {
-    // Check variables first (mutable, shadows constants)
-    final (variable, scopeIndex) = getVariable(identifier);
-    if (variable != null) {
-      return (variable, true, scopeIndex);
-    }
-
-    // Check constants in current scope
-    var (constant, index) = _constants.getByIdentifier(identifier);
-    if (constant != null || index != null) {
-      return (constant, true, null); // Constants don't have a scope index
-    }
-
-    return (null, false, null);
-  }*/
-
-  void print(dynamic value) {
-    if (readonly) {
+  void print(ExecutionNode caller, dynamic value) {
+    if (sandboxed) {
       return;
     }
 
     printFunction?.call(value);
   }
 
-  Future<String> prompt(dynamic prompt) async {
-    if (readonly) {
+  Future<String> prompt(ExecutionNode caller, dynamic prompt) async {
+    if (sandboxed) {
       return "";
     }
 
     return await promptFunction?.call(prompt) ?? "";
   }
 
-  Future<String> readLine() async {
-    if (readonly) {
+  Future<String> readLine(ExecutionNode caller) async {
+    if (sandboxed) {
       return "";
     }
 
     return await readlineFunction?.call() ?? "";
   }
 
-  Future<void> plot(dynamic xVector, dynamic yVector) async {
-    if (readonly) {
+  Future<void> plot(
+    ExecutionNode caller,
+    dynamic xVector,
+    dynamic yVector,
+  ) async {
+    if (sandboxed) {
       return;
     }
     return await plotFunction?.call(xVector, yVector);
   }
 
-  Future<void> cls() async {
-    if (readonly) {
+  Future<void> cls(ExecutionNode caller) async {
+    if (sandboxed) {
       return;
     }
 
     await clsFunction?.call();
   }
 
-  Future<void> hideGraph() async {
-    if (readonly) {
+  Future<void> hideGraph(ExecutionNode caller) async {
+    if (sandboxed) {
       return;
     }
 
     await hideGraphFunction?.call();
   }
 
-  extern(name, args) {
-    /*var nullaryFunction  = nullaryFunctions[name];
-    if (nullaryFunction != null) {
-      return nullaryFunction();
-    }*/
+  Future<Thread> startThread(ExecutionNode caller, dynamic userFunction) async {
+    var thread = Thread(id: nextThreadId++);
+    threads[thread.id] = thread;
+
+    UserFunctionExecutionNode(
+      userFunction,
+      [],
+      thread: thread,
+      scope: caller.scope,
+    );
+    return thread;
+  }
+
+  void joinThread(ExecutionNode caller, dynamic thread) {
+    if (sandboxed) {
+      return;
+    }
+
+    caller.thread.join(thread);
+  }
+
+  extern(ExecutionNode caller, dynamic name, dynamic args) {
     var unaryFunction = unaryFunctions[name];
     if (unaryFunction != null) {
       if (args is List && args.length == 1) {
-        return unaryFunction(args[0]);
+        return unaryFunction(caller, args[0]);
       }
     }
     var binaryFunction = binaryFunctions[name];
@@ -608,6 +674,8 @@ class Runtime {
     setBinaryFunction("_DISPLAY_GRAPH", plot);
     setNullaryFunction("CLS", cls);
     setNullaryFunction("HIDE_GRAPH", hideGraph);
+    setUnaryFunction("THREAD", startThread);
+    setUnaryFunction("JOIN", joinThread);
     setBinaryFunction("_EXTERN", extern);
   }
 
@@ -621,27 +689,14 @@ class Runtime {
       );
     }
 
-    // Register mathematical functions
-    /*for (var entry in unaryFunctions.entries) {
-      constantsSet.includeIdentifier(entry.key);
-    }
-    for (var entry in binaryFunctions.entries) {
-      constantsSet.includeIdentifier(entry.key);
-    }*/
     return constantsSet;
   }
 
   static Runtime prepareRuntime([ConstantsSet? constantsSet]) {
     constantsSet ??= prepareConstantsSet();
     final unaryFns = <int, Function(dynamic p1)>{};
-    /*for (final entry in unaryFunctions.entries) {
-      unaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }*/
 
     final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
-    /*for (final entry in binaryFunctions.entries) {
-      binaryFns[constantsSet.includeIdentifier(entry.key)] = entry.value;
-    }*/
 
     var runtime = Runtime(
       constantsSet: constantsSet,
@@ -666,19 +721,20 @@ class Runtime {
     "AVOGADRO": 6.0221408e+23,
   };
 
-  static final Map<String, dynamic Function(dynamic)> unaryFunctions = {
-    "SIN": (a) => sin(a),
-    "COS": (a) => cos(a),
-    "TAN": (a) => tan(a),
-    "ACOS": (a) => acos(a),
-    "ASIN": (a) => asin(a),
-    "ATAN": (a) => atan(a),
-    "SQRT": (a) => sqrt(a),
-    "EXP": (a) => exp(a),
-    "LOG": (a) => log(a),
-    "LOWERCASE": (a) => a.toString().toLowerCase(),
-    "UPPERCASE": (a) => a.toString().toUpperCase(),
-    "INT": (a) {
+  static final Map<String, dynamic Function(ExecutionNode caller, dynamic)>
+  unaryFunctions = {
+    "SIN": (caller, a) => sin(a),
+    "COS": (caller, a) => cos(a),
+    "TAN": (caller, a) => tan(a),
+    "ACOS": (caller, a) => acos(a),
+    "ASIN": (caller, a) => asin(a),
+    "ATAN": (caller, a) => atan(a),
+    "SQRT": (caller, a) => sqrt(a),
+    "EXP": (caller, a) => exp(a),
+    "LOG": (caller, a) => log(a),
+    "LOWERCASE": (caller, a) => a.toString().toLowerCase(),
+    "UPPERCASE": (caller, a) => a.toString().toUpperCase(),
+    "INT": (caller, a) {
       if (a is int) {
         return a;
       }
@@ -690,7 +746,7 @@ class Runtime {
       }
       return a;
     },
-    "DOUBLE": (a) {
+    "DOUBLE": (caller, a) {
       if (a is double) {
         return a;
       }
@@ -702,9 +758,9 @@ class Runtime {
       }
       return a;
     },
-    "STRING": (a) => a.toString(),
-    "ROUND": (a) => a is double ? a.round() : a,
-    "LENGTH": (a) {
+    "STRING": (caller, a) => a.toString(),
+    "ROUND": (caller, a) => a is double ? a.round() : a,
+    "LENGTH": (caller, a) {
       if (a is String) {
         return a.length;
       }
@@ -734,5 +790,5 @@ class Runtime {
         },
       };
 
-  bool get readonly => _sandboxed;
+  bool get sandboxed => _sandboxed;
 }
