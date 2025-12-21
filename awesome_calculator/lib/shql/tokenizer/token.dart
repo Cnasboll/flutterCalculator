@@ -7,6 +7,7 @@ enum Symbols {
   semiColon,
   assignment,
   lambdaExpression,
+  call,
   inOp,
   not,
   pow,
@@ -98,6 +99,7 @@ enum TokenTypes {
   semiColon,
   assignment,
   lambda,
+  call,
 }
 
 enum Keywords {
@@ -322,6 +324,9 @@ class Token {
       // Exponentiation (right-associative, higher than mul/div)
       Symbols.pow: precedence++,
 
+      // Function call
+      Symbols.call: precedence,
+
       // Multiplication, division and remainder
       Symbols.mul: precedence,
       Symbols.div: precedence,
@@ -384,6 +389,7 @@ class Token {
       TokenTypes.gtEq: Symbols.gtEq,
       TokenTypes.match: Symbols.match,
       TokenTypes.notMatch: Symbols.notMatch,
+      TokenTypes.call: Symbols.call,
     };
   }
 
@@ -471,6 +477,8 @@ class Token {
       TokenTypes.colon: ":",
       TokenTypes.semiColon: ";",
       TokenTypes.assignment: ":=",
+      TokenTypes.lambda: "=>",
+      TokenTypes.call: "()",
     };
   }
 

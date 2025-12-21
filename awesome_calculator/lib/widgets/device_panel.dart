@@ -49,6 +49,7 @@ class _DevicePanelState extends State<DevicePanel>
         'hello_world.shql',
         'hello_name.shql',
         'calculator.shql',
+        "threads.shql",
         // Add more .shql files here as you add them to assets
       ];
       Directory extDir = Platform.isAndroid
@@ -129,12 +130,25 @@ class _DevicePanelState extends State<DevicePanel>
 
   Future<void> execute(String code, String complete) async {
     terminalPrint(code);
-    await Engine.execute(
-      code,
-      runtime: runtime,
-      constantsSet: constantsSet,
-      cancellationToken: _cancellationToken,
-    );
+    setState(() {
+      _currentInput = '';
+      _isExecuting = true;
+      _cancellationToken.reset();
+    });
+    try {
+      await Engine.execute(
+        code,
+        runtime: runtime,
+        constantsSet: constantsSet,
+        cancellationToken: _cancellationToken,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExecuting = false;
+        });
+      }
+    }
     terminalPrint(complete);
     _printStartupBanner();
   }

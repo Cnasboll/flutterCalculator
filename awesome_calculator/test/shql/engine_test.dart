@@ -448,6 +448,18 @@ void main() {
     );
   });
 
+  test('Test lambda expression', () async {
+    expect((await Engine.execute("f:= x => x^2;f(3)")), 9);
+  });
+
+  test('Test anonymous lambda expression', () async {
+    expect((await Engine.execute("(x => x^2)(3)")), 9);
+  });
+
+  test('Test nullary anonymous lambda expression', () async {
+    expect((await Engine.execute("(() => 9)()")), 9);
+  });
+
   test("Test return", () async {
     expect(
       (await Engine.execute(
@@ -529,5 +541,21 @@ void main() {
 
   test("Can assign to list variable", () async {
     expect((await Engine.execute("x := [1,2,3];x[0]")), 1);
+  });
+  test("Can assign to list member", () async {
+    expect((await Engine.execute("x := [1,2,3];x[1]:=4;x[1]")), 4);
+  });
+
+  test("Can create thread", () async {
+    expect((await Engine.execute("THREAD( () => 9 )")) is Thread, true);
+  });
+
+  test("Can start thread", () async {
+    expect(
+      (await Engine.execute(
+        "x := 0; t := THREAD( () => BEGIN FOR i := 1 TO 1000 DO x := x + 1; END ); JOIN(t); x",
+      )),
+      1000,
+    );
   });
 }

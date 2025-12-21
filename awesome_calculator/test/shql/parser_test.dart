@@ -129,10 +129,12 @@ void main() {
     var v = Tokenizer.tokenize('f()').toList();
     var constantsSet = ConstantsSet();
     var p = Parser.parseExpression(v.lookahead(), constantsSet);
-    expect(p.symbol, Symbols.identifier);
-    expect(p.children.length, 1);
-    expect(p.children[0].symbol, Symbols.tuple);
+    expect(p.symbol, Symbols.call);
+    expect(p.children.length, 2);
+    expect(p.children[0].symbol, Symbols.identifier);
     expect(p.children[0].children.isEmpty, true);
+    expect(p.children[1].symbol, Symbols.tuple);
+    expect(p.children[1].children.isEmpty, true);
   });
 
   test('Parse function call followed by operator', () {
@@ -147,8 +149,11 @@ void main() {
     var v = Tokenizer.tokenize('f(1)').toList();
     var constantsSet = ConstantsSet();
     var p = Parser.parseExpression(v.lookahead(), constantsSet);
-    expect(p.symbol, Symbols.identifier);
-    expect(p.children.length, 1);
+    expect(p.symbol, Symbols.call);
+    expect(p.children.length, 2);
+    expect(p.children[0].symbol, Symbols.identifier);
+    expect(p.children[1].symbol, Symbols.tuple);
+    expect(p.children[1].children.length, 1);
   });
 
   test('Parse function call with 1 arg followed by operator', () {

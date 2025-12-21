@@ -2,11 +2,15 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
-class NullaryLambdaExecutionNode extends ExecutionNode {
-  final dynamic Function() nullaryFunction;
+class BinaryFunctionExecutionNode extends ExecutionNode {
+  final BinaryFunction binaryFunction;
+  final dynamic argument1;
+  final dynamic argument2;
 
-  NullaryLambdaExecutionNode(
-    this.nullaryFunction, {
+  BinaryFunctionExecutionNode(
+    this.binaryFunction,
+    this.argument1,
+    this.argument2, {
     required super.thread,
     required super.scope,
   });
@@ -16,7 +20,7 @@ class NullaryLambdaExecutionNode extends ExecutionNode {
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    result = await nullaryFunction();
+    result = await binaryFunction.function(this, argument1, argument2);
     return TickResult.completed;
   }
 }
