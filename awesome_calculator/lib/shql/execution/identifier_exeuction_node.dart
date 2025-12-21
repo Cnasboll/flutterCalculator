@@ -1,6 +1,7 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/lambda_expression_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/lambdas/nullary_function_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/runtime.dart';
 
@@ -79,9 +80,7 @@ class IdentifierExecutionNode extends LazyExecutionNode {
 
     if (nullaryFunction != null) {
       return (
-        LambdaExpressionExecutionNode.fromNullaryFunction(
-          name,
-          node,
+        NullaryFunctionExecutionNode(
           NullaryFunction(
             name: name,
             identifier: identifier,
@@ -94,6 +93,7 @@ class IdentifierExecutionNode extends LazyExecutionNode {
         null,
       );
     }
+
     var unaryFunction = runtime.getUnaryFunction(identifier);
 
     if (unaryFunction != null) {

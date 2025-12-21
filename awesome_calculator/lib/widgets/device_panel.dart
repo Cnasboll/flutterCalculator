@@ -675,7 +675,7 @@ class _DevicePanelState extends State<DevicePanel>
         }
       } else if (key == 'BACK') {
         // Play typewriter sound for key press
-        sound = 'typewriter-backspace-1.wav';
+        sound = 'sounds/typewriter-backspace-1.wav';
         if (_cursorPosition > _inputStartPosition) {
           _terminalText =
               _terminalText.substring(0, _cursorPosition - 1) +
@@ -683,7 +683,7 @@ class _DevicePanelState extends State<DevicePanel>
           _cursorPosition--;
         }
       } else if (key == 'DEL') {
-        sound = 'typewriter-backspace-1.wav';
+        sound = 'sounds/typewriter-backspace-1.wav';
         if (_cursorPosition >= _inputStartPosition &&
             _cursorPosition < _terminalText.length) {
           _terminalText =
@@ -724,11 +724,6 @@ class _DevicePanelState extends State<DevicePanel>
 
       // After any text modification, evaluate the current input for the cash register display
       _evaluateCurrentInput();
-
-      // Reset one-time shift toggle after use
-      /*if (_virtualShiftToggled && key != 'SHIFT') {
-        _virtualShiftToggled = false;
-      }*/
 
       // Reset pressed key visual feedback
       Future.delayed(_keyPressDuration, () {
