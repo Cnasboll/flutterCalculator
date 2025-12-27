@@ -8,7 +8,8 @@ import 'package:awesome_calculator/shql/execution/lambdas/nullary_function_execu
 import 'package:awesome_calculator/shql/execution/lambdas/unary_function_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lambdas/user_function_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
 
 class CallExecutionNode extends LazyExecutionNode {
@@ -16,7 +17,7 @@ class CallExecutionNode extends LazyExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
     // We need to verify that the lhs is a callable entity, i.e. an identifier or a lambda expression
@@ -181,7 +182,9 @@ class CallExecutionNode extends LazyExecutionNode {
       );
     }
 
-    if (callableResult is! List) {
+    if (callableResult is! List &&
+        callableResult is! Map &&
+        callableResult is! String) {
       return (null, "${callableResult.runtimeType} used with an indexer.");
     }
 

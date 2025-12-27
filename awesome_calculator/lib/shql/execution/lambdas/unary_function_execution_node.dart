@@ -1,6 +1,7 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 
 class UnaryFunctionExecutionNode extends ExecutionNode {
   final UnaryFunction unaryFunction;
@@ -15,10 +16,10 @@ class UnaryFunctionExecutionNode extends ExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
-    result = await unaryFunction.function(this, argument);
+    result = await unaryFunction.function(execution, this, argument);
     return TickResult.completed;
   }
 }

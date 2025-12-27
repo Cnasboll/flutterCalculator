@@ -4,7 +4,7 @@ import 'package:awesome_calculator/shql/execution/assignment_execution_node.dart
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/identifier_exeuction_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
 import 'package:awesome_calculator/shql/execution/set_variable_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 import 'package:awesome_calculator/shql/tokenizer/token.dart';
@@ -24,7 +24,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
     if (_initializationNode == null) {
@@ -81,7 +81,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
         ? newIteratorValue > targetValue
         : newIteratorValue < targetValue;
     if (passingTarget) {
-      return _complete(runtime);
+      return _complete(execution);
     }
 
     SetVariableExecutionNode(
@@ -106,7 +106,7 @@ class ForLoopExecutionNode extends LazyExecutionNode {
     _stepNode = null;
   }
 
-  TickResult _complete(Runtime runtime) {
+  TickResult _complete(Execution execution) {
     return TickResult.completed;
   }
 
