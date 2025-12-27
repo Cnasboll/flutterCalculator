@@ -1,8 +1,11 @@
 import 'dart:math';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/lambdas/user_function_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/shql/parser/parse_tree.dart';
 
@@ -29,7 +32,7 @@ class UserFunction extends Callable {
 }
 
 class NullaryFunction extends Callable {
-  final Function(ExecutionNode caller) function;
+  final Function(Execution execution, ExecutionNode caller) function;
 
   NullaryFunction({
     required super.name,
@@ -39,7 +42,8 @@ class NullaryFunction extends Callable {
 }
 
 class UnaryFunction extends Callable {
-  final Function(ExecutionNode caller, dynamic p1) function;
+  final Function(Execution execution, ExecutionNode caller, dynamic p1)
+  function;
 
   UnaryFunction({
     required super.name,
@@ -49,7 +53,13 @@ class UnaryFunction extends Callable {
 }
 
 class BinaryFunction extends Callable {
-  final Function(ExecutionNode caller, dynamic p1, dynamic p2) function;
+  final Function(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic p1,
+    dynamic p2,
+  )
+  function;
 
   BinaryFunction({
     required super.name,
@@ -63,227 +73,6 @@ class Constant {
   final int identifier;
 
   Constant(this.value, this.identifier);
-}
-
-enum BreakState { none, breaked, continued }
-
-class BreakTarget {
-  BreakState _state = BreakState.none;
-  void breakExecution() {
-    _state = BreakState.breaked;
-  }
-
-  void continueExecution() {
-    _state = BreakState.continued;
-  }
-
-  bool clearContinued() {
-    var continued = _state == BreakState.continued;
-    if (continued) {
-      _state = BreakState.none;
-    }
-    return continued;
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    return _state == BreakState.breaked;
-  }
-}
-
-class ReturnTarget {
-  bool _returned = false;
-  bool _hasReturnValue = false;
-
-  dynamic _returnValue;
-
-  dynamic get returnValue => _returnValue;
-  bool get hasReturnValue => _hasReturnValue;
-
-  void returnNothing() {
-    _returned = true;
-    _hasReturnValue = false;
-    _returnValue = null;
-  }
-
-  void returnAValue(dynamic returnValue) {
-    _returned = true;
-    _hasReturnValue = true;
-    _returnValue = returnValue;
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    return _returned;
-  }
-}
-
-class Thread {
-  final int id;
-  final List<ExecutionNode> executionStack = [];
-  final List<BreakTarget> _breakTargets = [];
-  final List<ReturnTarget> _returnTargets = [];
-  Thread({required this.id});
-  bool get isIdle => executionStack.isEmpty;
-  bool get isRunning => executionStack.isNotEmpty;
-  ExecutionNode? get currentNode => isRunning ? executionStack.last : null;
-
-  ExecutionNode? popNode() {
-    if (isRunning) {
-      return executionStack.removeLast();
-    }
-    return null;
-  }
-
-  ExecutionNode? onExecutionNodeComplete(ExecutionNode executionNode) {
-    if (isRunning) {
-      error ??= executionNode.error;
-      result = executionNode.result;
-      return popNode();
-    }
-    return null;
-  }
-
-  void pushNode(ExecutionNode executionNode) {
-    executionStack.add(executionNode);
-  }
-
-  void reset() {
-    error = null;
-    result = null;
-    clearExecutionStack();
-    clearBreakTargets();
-    clearReturnTargets();
-  }
-
-  void clearExecutionStack() {
-    executionStack.clear();
-  }
-
-  BreakTarget pushBreakTarget() {
-    var breakTarget = BreakTarget();
-    _breakTargets.add(breakTarget);
-    return breakTarget;
-  }
-
-  void popBreakTarget() {
-    if (_breakTargets.isNotEmpty) {
-      _breakTargets.removeLast();
-    }
-  }
-
-  void breakCurrentExecution() {
-    if (_breakTargets.isNotEmpty) {
-      _breakTargets.last.breakExecution();
-    }
-  }
-
-  BreakTarget? get currentBreakTarget {
-    if (_breakTargets.isNotEmpty) {
-      return _breakTargets.last;
-    }
-    return null;
-  }
-
-  BreakState currentExecutionBreakState() {
-    if (_breakTargets.isNotEmpty) {
-      return _breakTargets.last._state;
-    }
-    return BreakState.none;
-  }
-
-  void clearBreakTargets() {
-    _breakTargets.clear();
-  }
-
-  (ReturnTarget?, String?) pushReturnTarget() {
-    if (_returnTargets.length >= 10) {
-      return (
-        null,
-        'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
-      );
-    }
-    var returnTarget = ReturnTarget();
-    _returnTargets.add(returnTarget);
-    return (returnTarget, null);
-  }
-
-  void popReturnTarget() {
-    if (_returnTargets.isNotEmpty) {
-      _returnTargets.removeLast();
-    }
-  }
-
-  ReturnTarget? get currentReturnTarget {
-    if (_returnTargets.isNotEmpty) {
-      return _returnTargets.last;
-    }
-    return null;
-  }
-
-  bool currentFunctionReturned() {
-    if (_returnTargets.isNotEmpty) {
-      return _returnTargets.last._returned;
-    }
-    return false;
-  }
-
-  void clearReturnTargets() {
-    _returnTargets.clear();
-  }
-
-  Future<bool> check(CancellationToken? cancellationToken) async {
-    if (await cancellationToken?.check() ?? false) {
-      return true;
-    }
-    if (currentExecutionBreakState() != BreakState.none) {
-      return true;
-    }
-    return currentFunctionReturned();
-  }
-
-  Future<bool> tick(
-    Runtime runtime, [
-    CancellationToken? cancellationToken,
-  ]) async {
-    while ((cancellationToken == null || !await cancellationToken.check())) {
-      if (_joinTarget != null) {
-        if (_joinTarget!.isRunning) {
-          // Joined thread still running
-          return false;
-        }
-        // Joined thread has completed
-        _joinTarget = null;
-        return true;
-      }
-
-      var currentNode = executionStack.isNotEmpty ? executionStack.last : null;
-      if (currentNode == null) {
-        return true;
-      }
-      var tickResult = await currentNode.tick(runtime, cancellationToken);
-      if (tickResult == TickResult.iterated) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  void join(Thread joinTarget) {
-    _joinTarget = joinTarget;
-  }
-
-  String? error;
-  dynamic result;
-  dynamic getResult() {
-    return result;
-  }
-
-  Thread? _joinTarget;
 }
 
 class Object {
@@ -419,23 +208,280 @@ class Scope {
   }
 }
 
+enum BreakState { none, breaked, continued }
+
+class BreakTarget {
+  BreakState _state = BreakState.none;
+  void breakExecution() {
+    _state = BreakState.breaked;
+  }
+
+  void continueExecution() {
+    _state = BreakState.continued;
+  }
+
+  bool clearContinued() {
+    var continued = _state == BreakState.continued;
+    if (continued) {
+      _state = BreakState.none;
+    }
+    return continued;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _state == BreakState.breaked;
+  }
+}
+
+class ReturnTarget {
+  bool _returned = false;
+  bool _hasReturnValue = false;
+
+  dynamic _returnValue;
+
+  dynamic get returnValue => _returnValue;
+  bool get hasReturnValue => _hasReturnValue;
+
+  void returnNothing() {
+    _returned = true;
+    _hasReturnValue = false;
+    _returnValue = null;
+  }
+
+  void returnAValue(dynamic returnValue) {
+    _returned = true;
+    _hasReturnValue = true;
+    _returnValue = returnValue;
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    return _returned;
+  }
+}
+
+class Thread {
+  final int id;
+  final List<ExecutionNode> executionStack = [];
+  final List<BreakTarget> _breakTargets = [];
+  final List<ReturnTarget> _returnTargets = [];
+
+  Future<bool>? _pendingOperation;
+  bool _isOperationPending = false;
+
+  Thread({required this.id});
+  bool get isIdle => executionStack.isEmpty && !_isOperationPending;
+  bool get isRunning => executionStack.isNotEmpty;
+  ExecutionNode? get currentNode => isRunning ? executionStack.last : null;
+
+  ExecutionNode? popNode() {
+    if (isRunning) {
+      return executionStack.removeLast();
+    }
+    return null;
+  }
+
+  ExecutionNode? onExecutionNodeComplete(ExecutionNode executionNode) {
+    if (isRunning) {
+      error ??= executionNode.error;
+      result = executionNode.result;
+      return popNode();
+    }
+    return null;
+  }
+
+  void pushNode(ExecutionNode executionNode) {
+    executionStack.add(executionNode);
+  }
+
+  void reset() {
+    error = null;
+    result = null;
+    clearExecutionStack();
+    clearBreakTargets();
+    clearReturnTargets();
+  }
+
+  void clearExecutionStack() {
+    executionStack.clear();
+  }
+
+  BreakTarget pushBreakTarget() {
+    var breakTarget = BreakTarget();
+    _breakTargets.add(breakTarget);
+    return breakTarget;
+  }
+
+  void popBreakTarget() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.removeLast();
+    }
+  }
+
+  void breakCurrentExecution() {
+    if (_breakTargets.isNotEmpty) {
+      _breakTargets.last.breakExecution();
+    }
+  }
+
+  BreakTarget? get currentBreakTarget {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last;
+    }
+    return null;
+  }
+
+  BreakState currentExecutionBreakState() {
+    if (_breakTargets.isNotEmpty) {
+      return _breakTargets.last._state;
+    }
+    return BreakState.none;
+  }
+
+  void clearBreakTargets() {
+    _breakTargets.clear();
+  }
+
+  (ReturnTarget?, String?) pushReturnTarget() {
+    if (_returnTargets.length >= 10) {
+      return (
+        null,
+        'Stack overflow. Too many nested function calls. 10 is the reasonable, chronological maximum allowed for a steam driven computing machine.',
+      );
+    }
+    var returnTarget = ReturnTarget();
+    _returnTargets.add(returnTarget);
+    return (returnTarget, null);
+  }
+
+  void popReturnTarget() {
+    if (_returnTargets.isNotEmpty) {
+      _returnTargets.removeLast();
+    }
+  }
+
+  ReturnTarget? get currentReturnTarget {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last;
+    }
+    return null;
+  }
+
+  bool currentFunctionReturned() {
+    if (_returnTargets.isNotEmpty) {
+      return _returnTargets.last._returned;
+    }
+    return false;
+  }
+
+  void clearReturnTargets() {
+    _returnTargets.clear();
+  }
+
+  Future<bool> check(CancellationToken? cancellationToken) async {
+    if (await cancellationToken?.check() ?? false) {
+      return true;
+    }
+    if (currentExecutionBreakState() != BreakState.none) {
+      return true;
+    }
+    return currentFunctionReturned();
+  }
+
+  Future<bool> tick(
+    Execution execution, [
+    CancellationToken? cancellationToken,
+  ]) async {
+    if (_pendingOperation != null && _isOperationPending) {
+      return _pendingOperation!;
+    }
+
+    _isOperationPending = true;
+    _pendingOperation = _tick(execution, cancellationToken).then((value) {
+      _isOperationPending = false;
+      return value;
+    });
+    return _pendingOperation!;
+  }
+
+  Future<bool> _tick(
+    Execution execution, [
+    CancellationToken? cancellationToken,
+  ]) async {
+    while ((cancellationToken == null || !await cancellationToken.check())) {
+      if (_joinTarget != null) {
+        if (_joinTarget!.isRunning) {
+          // Joined thread still running
+          return false;
+        }
+        // Joined thread has completed
+        _joinTarget = null;
+        return true;
+      }
+
+      var currentNode = executionStack.isNotEmpty ? executionStack.last : null;
+      if (currentNode == null) {
+        return true;
+      }
+      var tickResult = await currentNode.tick(execution, cancellationToken);
+      if (tickResult == TickResult.iterated) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void join(Thread joinTarget) {
+    _joinTarget = joinTarget;
+  }
+
+  String? error;
+  dynamic result;
+  dynamic getResult() {
+    return result;
+  }
+
+  Thread? _joinTarget;
+}
+
 class Runtime {
   late final ConstantsTable<String> _identifiers;
-  final Map<String, Function(ExecutionNode caller)> _nullaryFunctions = {};
-  late final Map<int, Function(ExecutionNode caller, dynamic p1)>
+  final Map<String, Function(Execution execution, ExecutionNode caller)>
+  _nullaryFunctions = {};
+  late final Map<
+    int,
+    Function(Execution execution, ExecutionNode caller, dynamic p1)
+  >
   _unaryFunctions;
-  late final Map<int, Function(ExecutionNode caller, dynamic p1, dynamic p2)>
+  late final Map<
+    int,
+    Function(Execution execution, ExecutionNode caller, dynamic p1, dynamic p2)
+  >
   _binaryFunctions;
-  late final Thread mainThread;
-  late final Map<int, Thread> threads;
-  int nextThreadId = 1;
+  late final Map<
+    int,
+    Function(
+      Execution execution,
+      ExecutionNode caller,
+      dynamic p1,
+      dynamic p2,
+      dynamic p3,
+    )
+  >
+  _ternaryFunctions;
   late final Scope globalScope;
   final Map<int, Runtime> _subModelScopes = {};
   bool _sandboxed = false;
 
   Function(dynamic value)? printFunction;
-  Future<String> Function()? readlineFunction;
-  Future<String> Function(String prompt)? promptFunction;
+  Future<String?> Function()? readlineFunction;
+  Future<String?> Function(String prompt)? promptFunction;
+  Future<void> Function(String routeName)? navigateFunction;
   Future<void> Function()? clsFunction;
   Future<void> Function()? hideGraphFunction;
   Future<void> Function(dynamic, dynamic)? plotFunction;
@@ -444,12 +490,13 @@ class Runtime {
     ConstantsSet? constantsSet,
     required Map<int, Function(dynamic p1)> unaryFunctions,
     required Map<int, Function(dynamic p1, dynamic p2)> binaryFunctions,
+    required Map<int, Function(dynamic p1, dynamic p2, dynamic p3)>
+    ternaryFunctions,
   }) {
     _identifiers = constantsSet?.identifiers ?? ConstantsTable();
     _unaryFunctions = Map.from(unaryFunctions);
     _binaryFunctions = Map.from(binaryFunctions);
-    mainThread = Thread(id: 0);
-    threads = {0: mainThread};
+    _ternaryFunctions = Map.from(ternaryFunctions);
     globalScope = Scope(
       Object(),
       constants: constantsSet?.constants ?? ConstantsTable(),
@@ -462,13 +509,13 @@ class Runtime {
     _nullaryFunctions.addAll(other._nullaryFunctions);
     _unaryFunctions = Map.from(other._unaryFunctions);
     _binaryFunctions = Map.from(other._binaryFunctions);
-    mainThread = Thread(id: 0);
-    threads = {0: mainThread};
+    _ternaryFunctions = Map.from(other._ternaryFunctions);
     globalScope = other.globalScope.clone();
     _subModelScopes.addAll(other._subModelScopes);
     printFunction = other.printFunction;
     readlineFunction = other.readlineFunction;
     promptFunction = other.promptFunction;
+    navigateFunction = other.navigateFunction;
     clsFunction = other.clsFunction;
     hideGraphFunction = other.hideGraphFunction;
     plotFunction = other.plotFunction;
@@ -477,9 +524,6 @@ class Runtime {
   }
 
   Runtime._subModel(Runtime parent) {
-    mainThread = parent.mainThread;
-    nextThreadId = parent.nextThreadId;
-    threads = parent.threads;
     globalScope = Scope(Object(), constants: parent.globalScope.constants);
     _identifiers = parent._identifiers;
     // Sub-models have their own global scope
@@ -500,48 +544,19 @@ class Runtime {
     return scope;
   }
 
-  Future<bool> tick(
-    Runtime runtime, [
-    CancellationToken? cancellationToken,
-  ]) async {
-    // Never remove main thread even if "idle"
-    threads.removeWhere((key, thread) => key > 0 && thread.isIdle);
-    var allTreads = threads.values.toList();
-    for (var thread in allTreads) {
-      if (thread.isIdle) {
-        continue;
-      }
-      if (cancellationToken != null && await cancellationToken.check()) {
-        return true;
-      }
-
-      if (await thread.tick(runtime, cancellationToken)) {
-        if (cancellationToken != null && await cancellationToken.check()) {
-          return true;
-        }
-        continue;
-      }
-    }
-    return threads.values.every((thread) => thread.isIdle);
-  }
-
-  void reset() {
-    for (var thread in threads.values) {
-      thread.reset();
-    }
-  }
-
   bool hasNullaryFunction(String name) {
     return _nullaryFunctions.containsKey(name);
   }
 
-  Function(ExecutionNode caller)? getNullaryFunction(String name) {
+  Function(Execution execution, ExecutionNode caller)? getNullaryFunction(
+    String name,
+  ) {
     return _nullaryFunctions[name];
   }
 
   void setNullaryFunction(
     String name,
-    dynamic Function(ExecutionNode caller) nullaryFunction,
+    dynamic Function(Execution execution, ExecutionNode caller) nullaryFunction,
   ) {
     _nullaryFunctions[name] = nullaryFunction;
   }
@@ -550,20 +565,21 @@ class Runtime {
     return _unaryFunctions.containsKey(identifier);
   }
 
-  Function(ExecutionNode caller, dynamic p1)? getUnaryFunction(int identifier) {
+  Function(Execution execution, ExecutionNode caller, dynamic p1)?
+  getUnaryFunction(int identifier) {
     return _unaryFunctions[identifier];
   }
 
   void setUnaryFunction(
     String name,
-    dynamic Function(ExecutionNode caller, dynamic p1) unaryFunction,
+    dynamic Function(Execution execution, ExecutionNode caller, dynamic p1)
+    unaryFunction,
   ) {
     _unaryFunctions[identifiers.include(name)] = unaryFunction;
   }
 
-  Function(ExecutionNode caller, dynamic p1, dynamic p2)? getBinaryFunction(
-    int identifier,
-  ) {
+  Function(Execution execution, ExecutionNode caller, dynamic p1, dynamic p2)?
+  getBinaryFunction(int identifier) {
     return _binaryFunctions[identifier];
   }
 
@@ -573,13 +589,47 @@ class Runtime {
 
   void setBinaryFunction(
     String name,
-    dynamic Function(ExecutionNode caller, dynamic p1, dynamic p2)
+    dynamic Function(
+      Execution execution,
+      ExecutionNode caller,
+      dynamic p1,
+      dynamic p2,
+    )
     binaryFunction,
   ) {
     _binaryFunctions[identifiers.include(name)] = binaryFunction;
   }
 
-  void print(ExecutionNode caller, dynamic value) {
+  Function(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic p1,
+    dynamic p2,
+    dynamic p3,
+  )?
+  getTernaryFunction(int identifier) {
+    return _ternaryFunctions[identifier];
+  }
+
+  bool hasTernaryFunction(int identifier) {
+    return _ternaryFunctions.containsKey(identifier);
+  }
+
+  void setTernaryFunction(
+    String name,
+    dynamic Function(
+      Execution execution,
+      ExecutionNode caller,
+      dynamic p1,
+      dynamic p2,
+      dynamic p3,
+    )
+    ternaryFunction,
+  ) {
+    _ternaryFunctions[identifiers.include(name)] = ternaryFunction;
+  }
+
+  void print(Execution execution, ExecutionNode caller, dynamic value) {
     if (sandboxed) {
       return;
     }
@@ -587,7 +637,11 @@ class Runtime {
     printFunction?.call(value);
   }
 
-  Future<String> prompt(ExecutionNode caller, dynamic prompt) async {
+  Future<String> prompt(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic prompt,
+  ) async {
     if (sandboxed) {
       return "";
     }
@@ -595,7 +649,19 @@ class Runtime {
     return await promptFunction?.call(prompt) ?? "";
   }
 
-  Future<String> readLine(ExecutionNode caller) async {
+  Future<void> navigate(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic routeName,
+  ) async {
+    if (sandboxed) {
+      return;
+    }
+
+    return await navigateFunction?.call(routeName);
+  }
+
+  Future<String> readLine(Execution execution, ExecutionNode caller) async {
     if (sandboxed) {
       return "";
     }
@@ -604,6 +670,7 @@ class Runtime {
   }
 
   Future<void> plot(
+    Execution execution,
     ExecutionNode caller,
     dynamic xVector,
     dynamic yVector,
@@ -614,7 +681,7 @@ class Runtime {
     return await plotFunction?.call(xVector, yVector);
   }
 
-  Future<void> cls(ExecutionNode caller) async {
+  Future<void> cls(Execution execution, ExecutionNode caller) async {
     if (sandboxed) {
       return;
     }
@@ -622,7 +689,7 @@ class Runtime {
     await clsFunction?.call();
   }
 
-  Future<void> hideGraph(ExecutionNode caller) async {
+  Future<void> hideGraph(Execution execution, ExecutionNode caller) async {
     if (sandboxed) {
       return;
     }
@@ -630,20 +697,15 @@ class Runtime {
     await hideGraphFunction?.call();
   }
 
-  Future<Thread> startThread(ExecutionNode caller, dynamic userFunction) async {
-    var thread = Thread(id: nextThreadId++);
-    threads[thread.id] = thread;
-
-    UserFunctionExecutionNode(
-      userFunction,
-      [],
-      thread: thread,
-      scope: caller.scope,
-    );
-    return thread;
+  Future<Thread> startThread(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic userFunction,
+  ) async {
+    return execution.startThread(caller, userFunction);
   }
 
-  void joinThread(ExecutionNode caller, dynamic thread) {
+  void joinThread(Execution execution, ExecutionNode caller, dynamic thread) {
     if (sandboxed) {
       return;
     }
@@ -651,7 +713,12 @@ class Runtime {
     caller.thread.join(thread);
   }
 
-  extern(ExecutionNode caller, dynamic name, dynamic args) {
+  dynamic extern(
+    Execution execution,
+    ExecutionNode caller,
+    dynamic name,
+    dynamic args,
+  ) {
     var unaryFunction = unaryFunctions[name];
     if (unaryFunction != null) {
       if (args is List && args.length == 1) {
@@ -664,12 +731,20 @@ class Runtime {
         return binaryFunction(args[0], args[1]);
       }
     }
+
+    var ternaryFunction = ternaryFunctions[name];
+    if (ternaryFunction != null) {
+      if (args is List && args.length == 3) {
+        return ternaryFunction(args[0], args[1], args[2]);
+      }
+    }
     return null;
   }
 
   void hookUpConsole() {
     setUnaryFunction("PRINT", print);
     setUnaryFunction("PROMPT", prompt);
+    setUnaryFunction("NAVIGATE", navigate);
     setNullaryFunction("READLINE", readLine);
     setBinaryFunction("_DISPLAY_GRAPH", plot);
     setNullaryFunction("CLS", cls);
@@ -698,10 +773,13 @@ class Runtime {
 
     final binaryFns = <int, Function(dynamic p1, dynamic p2)>{};
 
+    final ternaryFns = <int, Function(dynamic p1, dynamic p2, dynamic p3)>{};
+
     var runtime = Runtime(
       constantsSet: constantsSet,
       unaryFunctions: unaryFns,
       binaryFunctions: binaryFns,
+      ternaryFunctions: ternaryFns,
     );
     return runtime;
   }
@@ -723,6 +801,22 @@ class Runtime {
 
   static final Map<String, dynamic Function(ExecutionNode caller, dynamic)>
   unaryFunctions = {
+    "CLONE": (caller, a) {
+      if (a is Map) {
+        return _deepCopyMap(a);
+      }
+      if (a is List) {
+        return _deepCopy(a);
+      }
+      if (a is String) {
+        return String.fromCharCodes(a.codeUnits);
+      }
+      if (a is Object) {
+        return a.clone();
+      }
+      return a;
+    },
+    "MD5": (caller, a) => md5.convert(utf8.encode(a.toString())).toString(),
     "SIN": (caller, a) => sin(a),
     "COS": (caller, a) => cos(a),
     "TAN": (caller, a) => tan(a),
@@ -771,6 +865,23 @@ class Runtime {
     },
   };
 
+  static dynamic _deepCopy(dynamic obj) {
+    if (obj is Map) {
+      return _deepCopyMap(obj);
+    } else if (obj is List) {
+      return obj.map((e) => _deepCopy(e)).toList();
+    }
+    return obj;
+  }
+
+  static Map<dynamic, dynamic> _deepCopyMap(Map<dynamic, dynamic> map) {
+    final newMap = <dynamic, dynamic>{};
+    map.forEach((key, value) {
+      newMap[_deepCopy(key)] = _deepCopy(value);
+    });
+    return newMap;
+  }
+
   static final Map<String, dynamic Function(dynamic, dynamic)> binaryFunctions =
       {
         "MIN": (a, b) => min(a, b),
@@ -789,6 +900,16 @@ class Runtime {
           return a;
         },
       };
+
+  static final Map<String, dynamic Function(dynamic, dynamic, dynamic)>
+  ternaryFunctions = {
+    "SUBSTRING": (a, start, end) {
+      if (a is String && start is int && end is int) {
+        return a.substring(start, end);
+      }
+      return a;
+    },
+  };
 
   bool get sandboxed => _sandboxed;
 }

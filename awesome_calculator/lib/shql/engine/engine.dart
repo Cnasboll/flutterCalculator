@@ -26,7 +26,8 @@ import 'package:awesome_calculator/shql/execution/if_statement_execution_node.da
 import 'package:awesome_calculator/shql/execution/lambdas/lambda_expression_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/list_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/map_literal_node.dart';
-import 'package:awesome_calculator/shql/execution/member_access_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/operators/objects/colon_execution_node.dart';
+import 'package:awesome_calculator/shql/execution/operators/objects/member_access_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/pattern/in_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/pattern/match_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/operators/pattern/not_match_execution_node.dart';
@@ -39,7 +40,8 @@ import 'package:awesome_calculator/shql/execution/operators/relational/less_than
 import 'package:awesome_calculator/shql/execution/operators/relational/not_equality_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/repeat_until_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/return_statement_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 import 'package:awesome_calculator/shql/execution/tuple_literal_node.dart';
 import 'package:awesome_calculator/shql/execution/while_loop_execution_node.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
@@ -71,7 +73,7 @@ class Engine {
     return await _execute(program, runtime, cancellationToken);
   }
 
-  static Future<dynamic> calculate(
+  static Future<dynamic> evalExpr(
     String expression, {
     Runtime? runtime,
     ConstantsSet? constantsSet,
@@ -80,7 +82,7 @@ class Engine {
     runtime ??= Runtime.prepareRuntime(constantsSet);
     var program = Parser.parse(expression, constantsSet);
 
-    var result = await _calculate(program, runtime);
+    var result = await _evaluate(program, runtime);
 
     if (result.$2 == false) {
       return null;
@@ -93,59 +95,51 @@ class Engine {
     Runtime runtime,
     CancellationToken? cancellationToken,
   ) async {
-    try {
-      var executionNode = createExecutionNode(
-        parseTree,
-        runtime.mainThread,
-        runtime.globalScope,
-      );
-      if (executionNode == null) {
-        throw RuntimeException('Failed to create execution node.');
-      }
-
-      while ((cancellationToken == null || !await cancellationToken.check()) &&
-          !await runtime.tick(runtime, cancellationToken)) {
-        await Future.delayed(const Duration(milliseconds: 1));
-      }
-
-      if (runtime.mainThread.error != null) {
-        throw RuntimeException(runtime.mainThread.error!);
-      }
-
-      return runtime.mainThread.result;
-    } finally {
-      // Clean up any temporary state if needed in the future
-      runtime.reset();
+    var execution = Execution(runtime: runtime);
+    var executionNode = createExecutionNode(
+      parseTree,
+      execution.mainThread,
+      runtime.globalScope,
+    );
+    if (executionNode == null) {
+      throw RuntimeException('Failed to create execution node.');
     }
+
+    while ((cancellationToken == null || !await cancellationToken.check()) &&
+        !await execution.tick(cancellationToken)) {
+      await Future.delayed(const Duration(milliseconds: 1));
+    }
+
+    if (execution.mainThread.error != null) {
+      throw RuntimeException(execution.mainThread.error!);
+    }
+
+    return execution.mainThread.result;
   }
 
-  static Future<(dynamic, bool)> _calculate(
+  static Future<(dynamic, bool)> _evaluate(
     ParseTree parseTree,
     Runtime runtime,
   ) async {
-    try {
-      var executionNode = createExecutionNode(
-        parseTree,
-        runtime.mainThread,
-        runtime.globalScope,
-      );
-      if (executionNode == null) {
-        throw RuntimeException('Failed to create execution node.');
-      }
-
-      if (!await runtime.tick(runtime)) {
-        return (null, false);
-      }
-
-      if (runtime.mainThread.error != null) {
-        throw RuntimeException(runtime.mainThread.error!);
-      }
-
-      return (runtime.mainThread.result, true);
-    } finally {
-      // Clean up any temporary state if needed in the future
-      runtime.reset();
+    var execution = Execution(runtime: runtime);
+    var executionNode = createExecutionNode(
+      parseTree,
+      execution.mainThread,
+      runtime.globalScope,
+    );
+    if (executionNode == null) {
+      throw RuntimeException('Failed to create execution node.');
     }
+
+    if (!await execution.tick()) {
+      return (null, false);
+    }
+
+    if (execution.mainThread.error != null) {
+      throw RuntimeException(execution.mainThread.error!);
+    }
+
+    return (execution.mainThread.result, true);
   }
 
   static ExecutionNode? createExecutionNode(
@@ -244,6 +238,16 @@ class Engine {
       return MemberAccessExecutionNode(parseTree, thread: thread, scope: scope);
     }
     executionNode = tryCreateCallExecutionNode(parseTree, thread, scope);
+
+    if (executionNode != null) {
+      return executionNode;
+    }
+
+    executionNode = tryCreateNameValuePairExecutionNode(
+      parseTree,
+      thread,
+      scope,
+    );
 
     if (executionNode != null) {
       return executionNode;
@@ -521,6 +525,22 @@ class Engine {
       return null;
     }
     return CallExecutionNode(parseTree, thread: thread, scope: scope);
+  }
+
+  static NameValuePairExecutionNode? tryCreateNameValuePairExecutionNode(
+    ParseTree parseTree,
+    Thread thread,
+    Scope scope,
+  ) {
+    if (parseTree.symbol != Symbols.colon) {
+      return null;
+    }
+    return NameValuePairExecutionNode(
+      parseTree.children[0],
+      parseTree.children[1],
+      thread: thread,
+      scope: scope,
+    );
   }
 
   static LambdaExpressionExecutionNode? tryCreateLambdaExpressionExecutionNode(

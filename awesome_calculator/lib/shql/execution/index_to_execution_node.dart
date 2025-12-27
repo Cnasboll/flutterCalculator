@@ -1,6 +1,6 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
 
 class IndexToExecutionNode extends ExecutionNode {
   IndexToExecutionNode(
@@ -15,7 +15,7 @@ class IndexToExecutionNode extends ExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) {
     result = indexable[index];

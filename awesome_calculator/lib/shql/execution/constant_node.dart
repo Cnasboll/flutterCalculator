@@ -1,7 +1,8 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 
 class ConstantNode<T> extends LazyExecutionNode {
@@ -9,7 +10,7 @@ class ConstantNode<T> extends LazyExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
     Scope? currentScope = scope;

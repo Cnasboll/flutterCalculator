@@ -2,7 +2,7 @@ import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/engine/engine.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
 import 'package:awesome_calculator/shql/execution/lazy_execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
 
 class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
   RepeatUntilLoopExecutionNode(
@@ -16,7 +16,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
     if (_bodyNode == null) {
@@ -39,7 +39,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
 
     var conditionResult = _conditionNode!.result;
     if (conditionResult) {
-      _complete(runtime);
+      _complete(execution);
       return TickResult.completed;
     }
 
@@ -64,7 +64,7 @@ class RepeatUntilLoopExecutionNode extends LazyExecutionNode {
     _bodyNode = null;
   }
 
-  TickResult _complete(Runtime runtime) {
+  TickResult _complete(Execution execution) {
     _propagateResult();
     return TickResult.completed;
   }

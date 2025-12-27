@@ -1,6 +1,7 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 
 class NullaryFunctionExecutionNode extends ExecutionNode {
   final NullaryFunction nullaryFunction;
@@ -13,10 +14,10 @@ class NullaryFunctionExecutionNode extends ExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
-    result = await nullaryFunction.function(this);
+    result = await nullaryFunction.function(execution, this);
     return TickResult.completed;
   }
 }

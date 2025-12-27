@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/runtime.dart';
 import 'package:awesome_calculator/shql/parser/constants_set.dart';
 import 'package:awesome_calculator/widgets/post_it_note.dart';
 import 'package:flutter/material.dart';
@@ -477,7 +477,7 @@ class _DevicePanelState extends State<DevicePanel>
       return;
     }
 
-    Engine.calculate(
+    Engine.evalExpr(
           currentInput,
           runtime: runtime.sandbox(),
           constantsSet: constantsSet,

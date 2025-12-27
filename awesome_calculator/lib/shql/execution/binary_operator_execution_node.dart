@@ -1,7 +1,7 @@
 import 'package:awesome_calculator/shql/engine/cancellation_token.dart';
 import 'package:awesome_calculator/shql/execution/binary_execution_node.dart';
 import 'package:awesome_calculator/shql/execution/execution_node.dart';
-import 'package:awesome_calculator/shql/execution/runtime.dart';
+import 'package:awesome_calculator/shql/execution/runtime/execution.dart';
 
 abstract class BinaryOperatorExecutionNode extends BinaryExecutionNode {
   BinaryOperatorExecutionNode(
@@ -13,7 +13,7 @@ abstract class BinaryOperatorExecutionNode extends BinaryExecutionNode {
 
   @override
   Future<TickResult> doTick(
-    Runtime runtime,
+    Execution execution,
     CancellationToken? cancellationToken,
   ) async {
     if (lhs == null) {
